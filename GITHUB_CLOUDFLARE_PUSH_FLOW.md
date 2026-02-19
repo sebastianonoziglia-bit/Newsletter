@@ -41,6 +41,17 @@ Cloudflare Dashboard:
 
 After that, each push to `main` triggers a deploy.
 
+## 5) GitHub Actions auto-deploy (already included)
+
+This repo includes:
+- `/Users/sebbo/Desktop/Newsletter/.github/workflows/deploy-worker.yml`
+
+In your GitHub repo settings, add these repository secrets:
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+Then every push to `main` deploys automatically.
+
 ## Notes
 
 - Worker config is in `wrangler.toml`.
