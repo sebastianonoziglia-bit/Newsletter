@@ -1,0 +1,22 @@
+name = "crimson-bar-9107"
+main = "src/worker.js"
+compatibility_date = "2026-02-19"
+workers_dev = true
+
+[vars]
+GOOGLE_SHEET_ID = "1ukXTu8PXWHGe4Fzg5rA424BmN6Bi3FPAWwA12QybNpI"
+GOOGLE_META_TAB = "meta"
+GOOGLE_POINTS_TAB = "points"
+GOOGLE_DISTRIBUTION_TAB = "distribution"
+GOOGLE_LIVE_PRICES_TAB = "live_prices"
+CACHE_TTL_SECONDS = "120"
+R2_IMAGE_PREFIX = "image"
+R2_IMAGE_EXT = "jpg"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "newsletter-images"
