@@ -692,6 +692,27 @@ def resolve_image_path(point: Point, meta: dict[str, str], output_dir: Path) -> 
     return candidate if (output_dir / candidate).exists() else ""
 
 
+def resolve_extra_image_paths(
+    point: Point, meta: dict[str, str], output_dir: Path
+) -> list[str]:
+    if not parse_bool(meta.get("auto_image_by_order", "true")):
+        return []
+
+    image_dir = normalize_text(meta.get("image_dir", ".")) or "."
+    max_extra_images = int(parse_number(meta.get("max_extra_images", "10"), default=10))
+    max_extra_images = max(0, min(20, max_extra_images))
+    extensions = ["png", "jpg", "jpeg", "webp"]
+    sources: list[str] = []
+
+    for index in range(1, max_extra_images + 1):
+        for extension in extensions:
+            candidate = (Path(image_dir) / f"{point.order}.{index}.{extension}").as_posix()
+            if (output_dir / candidate).exists():
+                sources.append(candidate)
+                break
+    return sources
+
+
 def render_image_block(point: Point, image_src: str) -> str:
     if not image_src:
         return ""
@@ -702,6 +723,16 @@ def render_image_block(point: Point, image_src: str) -> str:
         f'  <div class="caption">{html.escape(caption)}</div>\n'
         "</div>"
     )
+
+
+def render_extra_images_block(point: Point, image_sources: list[str]) -> str:
+    if not image_sources:
+        return ""
+    image_tags = "\n".join(
+        f'  <img src="{html.escape(src)}" alt="{html.escape(point.title)} - extra {index}">'
+        for index, src in enumerate(image_sources, start=1)
+    )
+    return '<div class="extra-images">\n' + image_tags + "\n</div>"
 
 
 def render_point(point: Point, meta: dict[str, str], output_dir: Path) -> str:
@@ -716,11 +747,16 @@ def render_point(point: Point, meta: dict[str, str], output_dir: Path) -> str:
     if image_block:
         parts.append(indent_block(image_block, 16))
 
+    extra_image_sources = resolve_extra_image_paths(point, meta, output_dir)
+    extra_images_block = render_extra_images_block(point, extra_image_sources)
+
     parts.append(indent_block(render_content_blocks(point.content), 16))
     if point.source:
         parts.append(
             f'                <p class="point-source">{html.escape(point.source)}</p>'
         )
+    if extra_images_block:
+        parts.append(indent_block(extra_images_block, 16))
     parts.extend(
         [
             "              </td>",
@@ -804,6 +840,8 @@ def render_html(
       .image {{ margin: 20px 0; }}
       .image img {{ width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }}
       .caption {{ font-size: 12px; color: #7a7a7a; margin-top: 6px; }}
+      .extra-images {{ margin: 14px 0 0; display: grid; gap: 10px; }}
+      .extra-images img {{ width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }}
       .snapshot {{ background: #fcfcfc; }}
       .snapshot-intro {{ margin: 0 0 14px; font-size: 14px; color: #4f4f4f; }}
       .snapshot-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }}

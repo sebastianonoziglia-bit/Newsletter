@@ -42,6 +42,7 @@ Use these tabs and columns:
 4. Optional auto-images:
 - Put files as `1.png`, `2.png`, ... `10.png` in `/Users/sebbo/Desktop/Newsletter/`
 - If `image_path` is empty, the script auto-uses the matching number if the file exists.
+- Extra images per point are supported at the bottom of that point section with names like `1.1.png`, `1.2.png`, `2.1.png`, `3.1.png`.
 
 ## Rebuild Newsletter
 

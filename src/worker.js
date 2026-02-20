@@ -557,6 +557,8 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
       .image { margin: 20px 0; }
       .image img { width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
+      .extra-images { margin: 14px 0 0; display: grid; gap: 10px; }
+      .extra-images img { width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }
       .snapshot { background: #fcfcfc; }
       .snapshot-intro { margin: 0 0 14px; font-size: 14px; color: #4f4f4f; }
       .snapshot-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -667,6 +669,8 @@ ${snapshotHtml}
 function renderPoint(point, meta, imageOptions) {
   const imageSrc = resolveImagePath(point, meta, imageOptions);
   const imageBlock = renderImageBlock(point, imageSrc);
+  const extraImageSources = resolveExtraImagePaths(point, meta, imageOptions);
+  const extraImagesBlock = renderExtraImagesBlock(point, extraImageSources);
 
   let output = "            <tr>\n";
   output += "              <td class=\"section\">\n";
@@ -677,6 +681,9 @@ function renderPoint(point, meta, imageOptions) {
   output += `${indentBlock(renderContentBlocks(point.content), 16)}\n`;
   if (point.source) {
     output += `                <p class=\"point-source\">${escapeHtml(point.source)}</p>\n`;
+  }
+  if (extraImagesBlock) {
+    output += `${indentBlock(extraImagesBlock, 16)}\n`;
   }
   output += "              </td>\n";
   output += "            </tr>\n";
@@ -694,6 +701,19 @@ function renderImageBlock(point, imageSrc) {
     `  <div class="caption">${escapeHtml(caption)}</div>\n` +
     "</div>"
   );
+}
+
+function renderExtraImagesBlock(point, imageSources) {
+  if (!imageSources.length) {
+    return "";
+  }
+  const imageTags = imageSources
+    .map(
+      (src, index) =>
+        `  <img src="${escapeHtml(src, true)}" alt="${escapeHtml(point.title)} - extra ${index + 1}" onerror="this.style.display='none'">`
+    )
+    .join("\n");
+  return '<div class="extra-images">\n' + imageTags + "\n</div>";
 }
 
 function renderSnapshotSection(meta, distribution) {
@@ -807,6 +827,36 @@ function renderLiveBtcChip(liveBtc) {
   const formatted = formatCurrency(liveBtc.price, liveBtc.currency || "USD");
   const updatedText = liveBtc.date ? ` | updated ${escapeHtml(liveBtc.date)}` : "";
   return `<p class="live-price">BTC live: <strong>${escapeHtml(formatted)}</strong>${updatedText}</p>`;
+}
+
+function resolveExtraImagePaths(point, meta, imageOptions) {
+  if (!parseBool(meta.auto_image_by_order)) {
+    return [];
+  }
+
+  const useR2Images = Boolean(imageOptions?.useR2Images);
+  const r2ImagePrefix = normalizeText(imageOptions?.r2ImagePrefix) || "image";
+  const r2ImageExt = normalizeText(imageOptions?.r2ImageExt) || "jpg";
+  const imageBaseUrl = normalizeText(meta.image_base_url);
+  const maxExtraRaw = parseNumber(meta.max_extra_images, 6);
+  const maxExtraImages = Math.max(0, Math.min(20, Math.floor(maxExtraRaw || 6)));
+  const sources = [];
+
+  for (let index = 1; index <= maxExtraImages; index += 1) {
+    const candidate = useR2Images
+      ? `${r2ImagePrefix}${point.order}.${index}.${r2ImageExt}`
+      : `${point.order}.${index}.png`;
+
+    if (imageBaseUrl) {
+      sources.push(`${imageBaseUrl.replace(/\/+$/, "")}/${candidate.replace(/^\/+/, "")}`);
+    } else if (useR2Images) {
+      sources.push(`/img/${candidate.replace(/^\/+/, "")}`);
+    } else {
+      sources.push(`/${candidate.replace(/^\/+/, "")}`);
+    }
+  }
+
+  return sources;
 }
 
 function resolveImagePath(point, meta, imageOptions) {
