@@ -24,7 +24,10 @@ const DEFAULT_META = {
   cta_label: "globalite.co",
   address_line: "Globalite, Lugano, Piazza dell'Indipendenza 3, CAP 6901",
   footer_line: "Globalite Macro Brief - For internal distribution.",
-  footer_logo_url: "/brand_orange_bg_transparent@2xSite.svg",
+  footer_logo_url: "/logotosite.png",
+  footer_instagram_icon: "/instagram.png",
+  footer_x_icon: "/x:twitter.png",
+  footer_linkedin_icon: "/linkedin.png",
   image_dir: ".",
   auto_image_by_order: "true",
   logo_url: "/brand_orange_bg_transparent@2xSite.svg",
@@ -506,7 +509,10 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
   const footerLine = escapeHtml(meta.footer_line);
   const resolvedLogo = resolveLogo(meta);
   const logoUrl = escapeHtml(resolvedLogo, true);
-  const footerLogoUrl = escapeHtml(normalizeText(meta.footer_logo_url) || resolvedLogo, true);
+  const footerLogoUrl = escapeHtml(normalizeText(meta.footer_logo_url) || "/logotosite.png", true);
+  const footerInstagramIcon = escapeHtml(normalizeText(meta.footer_instagram_icon) || "/instagram.png", true);
+  const footerXIcon = escapeHtml(normalizeText(meta.footer_x_icon) || "/x:twitter.png", true);
+  const footerLinkedinIcon = escapeHtml(normalizeText(meta.footer_linkedin_icon) || "/linkedin.png", true);
 
   const pointsHtml = points
     .map((point) => renderPoint(point, meta, imageOptions))
@@ -592,8 +598,9 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
       .footer-links { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ececec; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
       .footer-logo-link { display: inline-flex; }
       .footer-logo-link img { width: 44px; height: 44px; object-fit: cover; border-radius: 20px; border: 1px solid #e0e0e0; }
-      .footer-social { display: flex; flex-wrap: wrap; gap: 8px 12px; }
-      .footer-social a { font-size: 12px; font-weight: 600; color: #ff4202; }
+      .footer-social { display: flex; align-items: center; gap: 10px; }
+      .footer-social a { display: inline-flex; }
+      .footer-social img { width: 24px; height: 24px; object-fit: contain; border-radius: 6px; }
       @media (max-width: 720px) {
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
         .wrapper { padding: 16px 0; }
@@ -651,17 +658,15 @@ ${snapshotHtml}
             <tr>
               <td class="footer">
                 <p>${footerLine}</p>
-                <p>For more info, visit <a href="${ctaUrl}" target="_blank" rel="noopener noreferrer">${ctaLabel}</a>.</p>
                 <p>${addressLine}</p>
                 <div class="footer-links">
                   <a class="footer-logo-link" href="https://globalite.co" target="_blank" rel="noopener noreferrer">
                     <img src="${footerLogoUrl}" alt="Globalite logo">
                   </a>
                   <div class="footer-social">
-                    <a href="https://globalite.co" target="_blank" rel="noopener noreferrer">Website</a>
-                    <a href="https://www.instagram.com/globalite.sa/" target="_blank" rel="noopener noreferrer">Instagram</a>
-                    <a href="https://x.com/globalite_sa" target="_blank" rel="noopener noreferrer">X</a>
-                    <a href="https://www.linkedin.com/company/globalite-sa" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                    <a href="https://www.instagram.com/globalite.sa/" target="_blank" rel="noopener noreferrer"><img src="${footerInstagramIcon}" alt="Instagram"></a>
+                    <a href="https://x.com/globalite_sa" target="_blank" rel="noopener noreferrer"><img src="${footerXIcon}" alt="X"></a>
+                    <a href="https://www.linkedin.com/company/globalite-sa" target="_blank" rel="noopener noreferrer"><img src="${footerLinkedinIcon}" alt="LinkedIn"></a>
                   </div>
                 </div>
               </td>
