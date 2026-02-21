@@ -889,19 +889,21 @@ def render_html(
       .footer {{ padding: 18px 32px 28px; font-size: 12px; color: #7a7a7a; }}
       .footer p {{ margin: 0; }}
       .footer p + p {{ margin-top: 6px; }}
-      .footer-links {{ margin-top: 14px; padding-top: 12px; border-top: 1px solid #ececec; display: flex; align-items: center; justify-content: space-between; gap: 14px; }}
-      .footer-logo-link {{ display: inline-flex; }}
-      .footer-logo-link img {{ width: 44px; height: 44px; object-fit: cover; border-radius: 20px; border: 1px solid #e0e0e0; }}
-      .footer-social {{ display: flex; align-items: center; gap: 10px; }}
-      .footer-social a {{ display: inline-flex; }}
-      .footer-social img {{ width: 24px; height: 24px; object-fit: contain; border-radius: 6px; }}
+      .footer-links {{ margin-top: 14px; padding-top: 12px; border-top: 1px solid #ececec; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
+      .footer-panel {{ border: 1px solid #ececec; border-radius: 12px; background: #fafafa; padding: 10px; }}
+      .footer-panel-title {{ margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: #8a8a8a; font-family: "Poppins", Arial, sans-serif; }}
+      .footer-logo-link {{ display: inline-flex; align-items: center; gap: 8px; color: #1f1f1f; font-size: 12px; font-weight: 600; }}
+      .footer-logo-link img {{ width: 52px; height: 52px; object-fit: cover; border-radius: 20px; border: 1px solid #e0e0e0; }}
+      .footer-social {{ display: flex; flex-direction: column; gap: 6px; }}
+      .footer-social a {{ display: inline-flex; align-items: center; gap: 8px; color: #1f1f1f; font-size: 12px; font-weight: 600; font-family: "Poppins", Arial, sans-serif; }}
+      .footer-social img {{ width: 30px; height: 30px; object-fit: contain; border-radius: 8px; }}
       @media (max-width: 720px) {{
         .toolbar {{ padding: 10px 16px 6px; box-sizing: border-box; }}
         .wrapper {{ padding: 16px 0; }}
         .container {{ width: 100%; max-width: 100%; border-radius: 0; }}
         .header, .section, .footer {{ padding: 18px 20px; }}
         .snapshot-grid {{ grid-template-columns: 1fr; }}
-        .footer-links {{ flex-direction: column; align-items: flex-start; }}
+        .footer-links {{ grid-template-columns: 1fr; }}
         h1 {{ font-size: 24px; }}
       }}
       @media print {{
@@ -953,13 +955,20 @@ def render_html(
                 <p>{footer_line}</p>
                 <p>{address_line}</p>
                 <div class="footer-links">
-                  <a class="footer-logo-link" href="https://globalite.co" target="_blank" rel="noopener noreferrer">
-                    <img src="{footer_logo_url}" alt="Globalite logo">
-                  </a>
-                  <div class="footer-social">
-                    <a href="https://www.instagram.com/globalite.sa/" target="_blank" rel="noopener noreferrer"><img src="{footer_instagram_icon}" alt="Instagram"></a>
-                    <a href="https://x.com/globalite_sa" target="_blank" rel="noopener noreferrer"><img src="{footer_x_icon}" alt="X"></a>
-                    <a href="https://www.linkedin.com/company/globalite-sa" target="_blank" rel="noopener noreferrer"><img src="{footer_linkedin_icon}" alt="LinkedIn"></a>
+                  <div class="footer-panel">
+                    <p class="footer-panel-title">Site</p>
+                    <a class="footer-logo-link" href="https://globalite.co" target="_blank" rel="noopener noreferrer">
+                      <img src="{footer_logo_url}" alt="Globalite logo">
+                      <span>globalite.co</span>
+                    </a>
+                  </div>
+                  <div class="footer-panel">
+                    <p class="footer-panel-title">Socials</p>
+                    <div class="footer-social">
+                      <a href="https://www.instagram.com/globalite.sa/" target="_blank" rel="noopener noreferrer"><img src="{footer_instagram_icon}" alt="Instagram"><span>Instagram</span></a>
+                      <a href="https://x.com/globalite_sa" target="_blank" rel="noopener noreferrer"><img src="{footer_x_icon}" alt="X"><span>X</span></a>
+                      <a href="https://www.linkedin.com/company/globalite-sa" target="_blank" rel="noopener noreferrer"><img src="{footer_linkedin_icon}" alt="LinkedIn"><span>LinkedIn</span></a>
+                    </div>
                   </div>
                 </div>
               </td>
