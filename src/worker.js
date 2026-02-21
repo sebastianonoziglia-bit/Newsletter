@@ -24,6 +24,7 @@ const DEFAULT_META = {
   cta_label: "globalite.co",
   address_line: "Globalite, Lugano, Piazza dell'Indipendenza 3, CAP 6901",
   footer_line: "Globalite Macro Brief - For internal distribution.",
+  footer_logo_url: "/brand_orange_bg_transparent@2xSite.svg",
   image_dir: ".",
   auto_image_by_order: "true",
   logo_url: "/brand_orange_bg_transparent@2xSite.svg",
@@ -503,7 +504,9 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
   const ctaLabel = escapeHtml(meta.cta_label);
   const addressLine = escapeHtml(meta.address_line);
   const footerLine = escapeHtml(meta.footer_line);
-  const logoUrl = escapeHtml(resolveLogo(meta), true);
+  const resolvedLogo = resolveLogo(meta);
+  const logoUrl = escapeHtml(resolvedLogo, true);
+  const footerLogoUrl = escapeHtml(normalizeText(meta.footer_logo_url) || resolvedLogo, true);
 
   const pointsHtml = points
     .map((point) => renderPoint(point, meta, imageOptions))
@@ -586,12 +589,18 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
       .footer { padding: 18px 32px 28px; font-size: 12px; color: #7a7a7a; }
       .footer p { margin: 0; }
       .footer p + p { margin-top: 6px; }
+      .footer-links { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ececec; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+      .footer-logo-link { display: inline-flex; }
+      .footer-logo-link img { width: 44px; height: 44px; object-fit: cover; border-radius: 20px; border: 1px solid #e0e0e0; }
+      .footer-social { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+      .footer-social a { font-size: 12px; font-weight: 600; color: #ff4202; }
       @media (max-width: 720px) {
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
         .header, .section, .footer { padding: 18px 20px; }
         .snapshot-grid { grid-template-columns: 1fr; }
+        .footer-links { flex-direction: column; align-items: flex-start; }
         h1 { font-size: 24px; }
       }
       @media print {
@@ -644,6 +653,17 @@ ${snapshotHtml}
                 <p>${footerLine}</p>
                 <p>For more info, visit <a href="${ctaUrl}" target="_blank" rel="noopener noreferrer">${ctaLabel}</a>.</p>
                 <p>${addressLine}</p>
+                <div class="footer-links">
+                  <a class="footer-logo-link" href="https://globalite.co" target="_blank" rel="noopener noreferrer">
+                    <img src="${footerLogoUrl}" alt="Globalite logo">
+                  </a>
+                  <div class="footer-social">
+                    <a href="https://globalite.co" target="_blank" rel="noopener noreferrer">Website</a>
+                    <a href="https://www.instagram.com/globalite.sa/" target="_blank" rel="noopener noreferrer">Instagram</a>
+                    <a href="https://x.com/globalite_sa" target="_blank" rel="noopener noreferrer">X</a>
+                    <a href="https://www.linkedin.com/company/globalite-sa" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                  </div>
+                </div>
               </td>
             </tr>
           </table>
