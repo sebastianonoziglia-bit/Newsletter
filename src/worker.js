@@ -93,6 +93,8 @@ export default {
         normalizeText(env.GOOGLE_CIRCULATING_TAB) || "Circulating BTC";
       const liquidationsTab =
         normalizeText(env.GOOGLE_LIQUIDATIONS_TAB) || "Liquidations";
+      const ownershipTab =
+        normalizeText(env.GOOGLE_OWNERSHIP_TAB) || "Distribution";
 
       const [
         metaRows,
@@ -102,6 +104,7 @@ export default {
         treasuriesRows,
         circulatingRows,
         liquidationsRows,
+        ownershipRows,
       ] =
         await Promise.all([
           fetchGoogleTabRows(sheetId, metaTab, true),
@@ -111,6 +114,7 @@ export default {
           fetchGoogleTabRows(sheetId, treasuriesTab, false),
           fetchGoogleTabRows(sheetId, circulatingTab, false),
           fetchGoogleTabRows(sheetId, liquidationsTab, false),
+          fetchGoogleTabRows(sheetId, ownershipTab, false),
         ]);
 
       const meta = readMeta(metaRows);
@@ -118,9 +122,16 @@ export default {
       const liveBtc = livePriceRows.length
         ? safeOptionalParse(livePricesTab, () => readLiveBtcPrice(livePriceRows), null)
         : null;
-      const btcPricePoints = btcPriceRows.length
+      let btcPricePoints = btcPriceRows.length
         ? safeOptionalParse(btcPriceTab, () => readBtcPricePoints(btcPriceRows), [])
         : [];
+      if (!btcPricePoints.length && livePriceRows.length) {
+        btcPricePoints = safeOptionalParse(
+          livePricesTab,
+          () => readBtcPricePointsFromLivePrices(livePriceRows),
+          []
+        );
+      }
       const treasuryBars = treasuriesRows.length
         ? safeOptionalParse(treasuriesTab, () => readTreasuryBars(treasuriesRows), [])
         : [];
@@ -129,6 +140,9 @@ export default {
         : null;
       const liquidationBars = liquidationsRows.length
         ? safeOptionalParse(liquidationsTab, () => readLiquidationBars(liquidationsRows), [])
+        : [];
+      const ownershipSegments = ownershipRows.length
+        ? safeOptionalParse(ownershipTab, () => readOwnershipSegments(ownershipRows), [])
         : [];
       if (!circulatingMetric) {
         const maxSupply = parseNumber(meta.max_supply_btc, 21_000_000);
@@ -150,6 +164,7 @@ export default {
         treasuryBars,
         circulatingMetric,
         liquidationBars,
+        ownershipSegments,
         liveBtc,
         {
         useR2Images: Boolean(env.IMAGES),
@@ -446,8 +461,7 @@ function readLiveBtcPrice(rows) {
 
   for (let i = rows.length - 1; i >= 1; i -= 1) {
     const row = rows[i];
-    const asset = normalizeText(row[mapping.asset]).toUpperCase();
-    if (!["BITCOIN", "BTC-USD", "BTC"].includes(asset)) {
+    if (!isBtcAsset(row[mapping.asset])) {
       continue;
     }
     const price = parseNumber(row[closeIdx], Number.NaN);
@@ -521,6 +535,54 @@ function readBtcPricePoints(rows, limit = 60) {
   for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i];
     const price = parseNumber(row[mapping.price], Number.NaN);
+    if (!(price > 0)) {
+      continue;
+    }
+    const dateRaw = row[mapping.date];
+    points.push({
+      idx: i,
+      dateValue: parseDateValue(dateRaw),
+      point: {
+        date_label: renderDateLabel(dateRaw),
+        price,
+      },
+    });
+  }
+
+  if (!points.length) {
+    return [];
+  }
+
+  if (points.some((item) => item.dateValue !== null)) {
+    points.sort((a, b) => {
+      if (a.dateValue === null && b.dateValue === null) return a.idx - b.idx;
+      if (a.dateValue === null) return 1;
+      if (b.dateValue === null) return -1;
+      return a.dateValue - b.dateValue;
+    });
+  }
+
+  const ordered = points.map((item) => item.point);
+  return ordered.slice(-limit);
+}
+
+function readBtcPricePointsFromLivePrices(rows, limit = 60) {
+  if (!rows.length) {
+    return [];
+  }
+  const mapping = headerIndexMap(rows, ["date", "asset"]);
+  const priceIdx = "price" in mapping ? mapping.price : ("close" in mapping ? mapping.close : -1);
+  if (priceIdx < 0) {
+    return [];
+  }
+
+  const points = [];
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    if (!isBtcAsset(row[mapping.asset])) {
+      continue;
+    }
+    const price = parseNumber(row[priceIdx], Number.NaN);
     if (!(price > 0)) {
       continue;
     }
@@ -663,6 +725,57 @@ function readLiquidationBars(rows, limit = 6) {
   return finalBars.slice(-limit);
 }
 
+function readOwnershipSegments(rows) {
+  if (!rows.length) {
+    return [];
+  }
+  const mapping = headerIndexMap(rows, ["category", "amount_btc"]);
+  const colorIdx = "color" in mapping ? mapping.color : -1;
+  const percentIdx = "percent" in mapping ? mapping.percent : -1;
+  const segments = [];
+
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    const category = normalizeText(row[mapping.category]);
+    const amount = Math.max(0, parseNumber(row[mapping.amount_btc], 0));
+    const percent = percentIdx >= 0 ? Math.max(0, parseNumber(row[percentIdx], 0)) : 0;
+    const color = colorIdx >= 0 ? normalizeText(row[colorIdx]) : "";
+    if (!category && amount <= 0) {
+      continue;
+    }
+    if (!category) {
+      continue;
+    }
+    segments.push({
+      category,
+      amount_btc: amount,
+      percent,
+      color: color || "rgb(255, 66, 2)",
+    });
+  }
+
+  if (!segments.length) {
+    return [];
+  }
+
+  const totalPercent = segments.reduce((acc, item) => acc + Math.max(0, item.percent), 0);
+  if (totalPercent > 0) {
+    segments.forEach((item) => {
+      item.percent = (Math.max(0, item.percent) / totalPercent) * 100;
+    });
+  } else {
+    const totalAmount = segments.reduce((acc, item) => acc + Math.max(0, item.amount_btc), 0);
+    if (totalAmount > 0) {
+      segments.forEach((item) => {
+        item.percent = (Math.max(0, item.amount_btc) / totalAmount) * 100;
+      });
+    }
+  }
+
+  segments.sort((a, b) => b.amount_btc - a.amount_btc);
+  return segments;
+}
+
 function renderHtml(
   meta,
   points,
@@ -670,6 +783,7 @@ function renderHtml(
   treasuryBars,
   circulatingMetric,
   liquidationBars,
+  ownershipSegments,
   liveBtc,
   imageOptions
 ) {
@@ -700,6 +814,7 @@ function renderHtml(
     treasuryBars,
     circulatingMetric,
     liquidationBars,
+    ownershipSegments,
     liveBtc
   );
 
@@ -758,14 +873,13 @@ function renderHtml(
       .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
       .market-live strong { color: #ffffff; }
       .market-live span { color: #ffcfb8; }
-      .market-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .market-card { border: 1px solid #1e1e1e; border-radius: 12px; padding: 12px; background: #101010; }
-      .market-card h3 { margin: 0 0 10px; color: #ffffff; font-size: 14px; font-weight: 700; }
-      .market-price-card { grid-column: 1 / -1; }
+      .market-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+      .market-card { border: 1px solid #1e1e1e; border-radius: 12px; padding: 16px; background: #101010; }
+      .market-card h3 { margin: 0 0 12px; color: #ffffff; font-size: 18px; font-weight: 700; }
       .market-price-svg { width: 100%; height: auto; display: block; }
-      .market-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; min-height: 180px; }
+      .market-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 12px; align-items: end; min-height: 220px; }
       .market-bar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-      .market-bar-track { width: 100%; max-width: 72px; height: 128px; border-radius: 8px; border: 1px solid #2a2a2a; background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+      .market-bar-track { width: 100%; max-width: 92px; height: 170px; border-radius: 8px; border: 1px solid #2a2a2a; background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
       .market-bar-fill { width: 100%; background: linear-gradient(180deg, #ff8b61 0%, #ff4202 100%); }
       .market-liq-track { justify-content: flex-end; }
       .market-liq-short { width: 100%; background: #8f3a1d; }
@@ -779,6 +893,13 @@ function renderHtml(
       .market-circ-card .market-circ-value { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #ffffff; }
       .market-progress-track { width: 100%; height: 14px; border: 1px solid #2a2a2a; border-radius: 999px; background: #0c0c0c; overflow: hidden; }
       .market-progress-fill { height: 100%; background: linear-gradient(90deg, #ff4202 0%, #ff8b61 100%); }
+      .market-own-bar { width: 100%; height: 18px; border: 1px solid #2a2a2a; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 10px; }
+      .market-own-segment { height: 100%; min-width: 2px; }
+      .market-own-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+      .market-own-item { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 6px; }
+      .market-own-dot { width: 8px; height: 8px; border-radius: 999px; }
+      .market-own-name { font-size: 12px; color: #d0d0d0; }
+      .market-own-value { font-size: 12px; color: #ffcfb8; }
       .market-subnote { margin: 8px 0 0; font-size: 12px; color: #b9b9b9; }
       .market-note { margin: 8px 0 0; font-size: 11px; color: #8e8e8e; }
       .market-empty { margin: 0; color: #9a9a9a; font-size: 12px; }
@@ -804,7 +925,7 @@ function renderHtml(
         .hero-content { padding: 20px; }
         .hero-title { font-size: 22px; }
         .market-grid { grid-template-columns: 1fr; }
-        .market-price-card { grid-column: auto; }
+        .market-own-legend { grid-template-columns: 1fr; }
         .footer-legal { padding: 14px 20px 10px; }
         .footer-dark { padding: 18px 20px; }
         .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
@@ -1121,19 +1242,51 @@ ${asOfHtml}
 ${noteHtml}`;
 }
 
+function renderOwnershipCard(ownershipSegments, maxItems = 8) {
+  if (!ownershipSegments.length) {
+    return '<p class="market-empty">No ownership rows found.</p>';
+  }
+
+  const barSegments = ownershipSegments
+    .map(
+      (item) =>
+        `<div class="market-own-segment" style="width:${Math.max(0, item.percent).toFixed(6)}%;background:${escapeHtml(item.color, true)};" title="${escapeHtml(item.category, true)}: ${escapeHtml(formatBtcCompact(item.amount_btc), true)} (${escapeHtml(formatPercent(item.percent), true)})"></div>`
+    )
+    .join("");
+
+  const legendRows = ownershipSegments
+    .slice(0, maxItems)
+    .map(
+      (item) =>
+        '<div class="market-own-item">' +
+        `<span class="market-own-dot" style="background:${escapeHtml(item.color, true)};"></span>` +
+        `<span class="market-own-name">${escapeHtml(item.category)}</span>` +
+        `<span class="market-own-value">${escapeHtml(formatPercent(item.percent))}</span>` +
+        "</div>"
+    )
+    .join("");
+
+  return (
+    `<div class="market-own-bar">${barSegments}</div>` +
+    `<div class="market-own-legend">${legendRows}</div>`
+  );
+}
+
 function renderMarketSection(
   meta,
   btcPricePoints,
   treasuryBars,
   circulatingMetric,
   liquidationBars,
+  ownershipSegments,
   liveBtc
 ) {
   if (
     !btcPricePoints.length &&
     !treasuryBars.length &&
     !circulatingMetric &&
-    !liquidationBars.length
+    !liquidationBars.length &&
+    !ownershipSegments.length
   ) {
     return "";
   }
@@ -1142,7 +1295,7 @@ function renderMarketSection(
     normalizeText(meta.market_section_title) || "Bitcoin Market Dashboard";
   const sectionIntro =
     normalizeText(meta.market_section_intro) ||
-    "Auto-rendered from BTC Price, Liquidations, Treasuries, and Circulating BTC tabs.";
+    "Auto-rendered from live_prices/BTC Price, Liquidations, Treasuries, Circulating BTC, and Distribution tabs.";
 
   const liveChip = liveBtc
     ? `<p class="market-live">Live BTC: <strong>${escapeHtml(formatUsd(liveBtc.price))}</strong>${
@@ -1172,6 +1325,10 @@ function renderMarketSection(
                   <div class="market-card market-circ-card">
                     <h3>Circulating BTC</h3>
                     ${renderCirculatingCard(circulatingMetric)}
+                  </div>
+                  <div class="market-card market-own-card">
+                    <h3>Supply Ownership</h3>
+                    ${renderOwnershipCard(ownershipSegments)}
                   </div>
                 </div>
               </td>
@@ -1360,6 +1517,15 @@ function renderBlockHeight(value) {
 
 function parseBool(value) {
   return ["1", "true", "yes", "y", "on"].includes(normalizeText(value).toLowerCase());
+}
+
+function normalizeAssetKey(value) {
+  return normalizeText(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function isBtcAsset(value) {
+  const key = normalizeAssetKey(value);
+  return key === "BTC" || key === "BITCOIN" || key === "BTCUSD" || key === "XBT" || key === "XBTUSD";
 }
 
 function parseNumber(value, defaultValue = 0) {

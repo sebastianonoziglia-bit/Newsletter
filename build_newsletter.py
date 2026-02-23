@@ -207,6 +207,15 @@ def parse_bool(value: str) -> bool:
     return normalize_text(value).lower() in {"1", "true", "yes", "y", "on"}
 
 
+def normalize_asset_key(value: object) -> str:
+    return re.sub(r"[^A-Z0-9]", "", normalize_text(value).upper())
+
+
+def is_btc_asset(value: object) -> bool:
+    key = normalize_asset_key(value)
+    return key in {"BTC", "BITCOIN", "BTCUSD", "XBT", "XBTUSD"}
+
+
 def parse_number(value: object, default: float = 0.0) -> float:
     text = normalize_text(value).replace(",", "")
     if not text:
@@ -878,8 +887,7 @@ def read_live_btc_price(live_prices_sheet) -> LiveBtcPrice | None:
     latest_date: datetime | None = None
 
     for row in live_prices_sheet.iter_rows(min_row=2, values_only=True):
-        asset = normalize_text(row_value(row, mapping["asset"]))
-        if asset.upper() not in {"BITCOIN", "BTC-USD", "BTC"}:
+        if not is_btc_asset(row_value(row, mapping["asset"])):
             continue
         price = parse_number(row_value(row, close_index), default=-1)
         if price <= 0:
@@ -927,6 +935,48 @@ def read_btc_price_points(
         entries.append(
             (
                 date_value,
+                index,
+                BtcPricePoint(date_label=render_date_label(date_raw), price=price),
+            )
+        )
+
+    if not entries:
+        return []
+
+    if any(item[0] is not None for item in entries):
+        entries.sort(
+            key=lambda item: (
+                item[0] is None,
+                item[0] if item[0] is not None else datetime.max,
+                item[1],
+            )
+        )
+
+    points = [item[2] for item in entries]
+    if len(points) > limit:
+        points = points[-limit:]
+    return points
+
+
+def read_btc_price_points_from_live_prices(
+    live_prices_sheet, limit: int = 60
+) -> list[BtcPricePoint]:
+    mapping = header_mapping(live_prices_sheet, ["date", "asset"], "live_prices")
+    price_index = mapping.get("price", mapping.get("close", -1))
+    if price_index < 0:
+        return []
+
+    entries: list[tuple[datetime | None, int, BtcPricePoint]] = []
+    for index, row in enumerate(live_prices_sheet.iter_rows(min_row=2, values_only=True)):
+        if not is_btc_asset(row_value(row, mapping["asset"])):
+            continue
+        price = parse_number(row_value(row, price_index), default=-1)
+        if price <= 0:
+            continue
+        date_raw = row_value(row, mapping["date"])
+        entries.append(
+            (
+                parse_date_value(date_raw),
                 index,
                 BtcPricePoint(date_label=render_date_label(date_raw), price=price),
             )
@@ -1448,7 +1498,7 @@ def render_market_section(
     )
     section_intro = (
         normalize_text(meta.get("market_section_intro", ""))
-        or "Auto-rendered from BTC Price, Liquidations, Treasuries, Circulating BTC, and Distribution tabs."
+        or "Auto-rendered from live_prices/BTC Price, Liquidations, Treasuries, Circulating BTC, and Distribution tabs."
     )
 
     live_chip = ""
@@ -1749,15 +1799,15 @@ def render_html(
       .market-live {{ margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }}
       .market-live strong {{ color: #ffffff; }}
       .market-live span {{ color: #ffcfb8; }}
-      .market-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
-      .market-card {{ border: 1px solid #1e1e1e; border-radius: 12px; padding: 12px; background: #101010; }}
-      .market-card h3 {{ margin: 0 0 10px; color: #ffffff; font-size: 14px; font-weight: 700; }}
+      .market-grid {{ display: grid; grid-template-columns: 1fr; gap: 14px; }}
+      .market-card {{ border: 1px solid #1e1e1e; border-radius: 12px; padding: 16px; background: #101010; }}
+      .market-card h3 {{ margin: 0 0 12px; color: #ffffff; font-size: 18px; font-weight: 700; }}
       .market-graph-note {{ margin: 0 0 10px; font-size: 12px; color: #b8b8b8; line-height: 1.5; }}
       .market-price-card {{ grid-column: 1 / -1; }}
       .market-price-svg {{ width: 100%; height: auto; display: block; }}
-      .market-bars {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; min-height: 180px; }}
+      .market-bars {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 12px; align-items: end; min-height: 220px; }}
       .market-bar-item {{ display: flex; flex-direction: column; align-items: center; gap: 6px; }}
-      .market-bar-track {{ width: 100%; max-width: 72px; height: 128px; border-radius: 8px; border: 1px solid #2a2a2a; background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }}
+      .market-bar-track {{ width: 100%; max-width: 92px; height: 170px; border-radius: 8px; border: 1px solid #2a2a2a; background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }}
       .market-bar-fill {{ width: 100%; background: linear-gradient(180deg, #ff8b61 0%, #ff4202 100%); }}
       .market-liq-track {{ justify-content: flex-end; }}
       .market-liq-short {{ width: 100%; background: #8f3a1d; }}
@@ -2099,6 +2149,15 @@ def main() -> int:
             if btc_price_rows
             else []
         )
+        if not btc_price_points and live_prices_rows:
+            btc_price_points = parse_optional(
+                args.google_live_prices_tab,
+                lambda: read_btc_price_points_from_live_prices(
+                    TabularSheet(live_prices_rows),
+                    limit=btc_setting.top_n or 60,
+                ),
+                [],
+            )
         treasury_bars = (
             parse_optional(
                 args.google_treasuries_tab,
@@ -2206,6 +2265,15 @@ def main() -> int:
             if "BTC Price" in workbook.sheetnames
             else []
         )
+        if not btc_price_points and "live_prices" in workbook.sheetnames:
+            btc_price_points = parse_optional(
+                "live_prices",
+                lambda: read_btc_price_points_from_live_prices(
+                    workbook["live_prices"],
+                    limit=btc_setting.top_n or 60,
+                ),
+                [],
+            )
         treasury_bars = (
             parse_optional(
                 "Treasuries",
