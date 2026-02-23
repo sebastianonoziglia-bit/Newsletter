@@ -28,17 +28,38 @@ Use these tabs and columns:
 - `image_caption` (optional)
 - `source` (optional)
 
-3. `distribution` (optional)
-- `category`
-- `amount_btc`
-- `percent` (optional; can be blank)
-- `color` (CSS color like `rgb(255, 66, 2)`)
+3. `live_prices` (optional but recommended)
+- `date`
+- `price` (or `close`)
+- `asset` (`Bitcoin` / `BTC-USD` / `BTC`)
+- `currency` (optional)
+
+4. `BTC Price` (for bottom BTC price chart)
+- `date`
+- `price`
+
+5. `Treasuries` (for bottom treasury bars)
+- `entity`
+- `btc`
+- `row_type` (optional, use `entity` for rows you want included)
+
+6. `Circulating BTC` (for bottom circulation card)
+- `circulating_supply_btc`
+- `max_supply_btc`
+- `as_of_date` (optional)
+- `note` (optional)
+
+7. `Liquidations` (for bottom liquidation bars)
+- `label`
+- `longs`
+- `shorts`
+- `period_type` (optional, `monthly` preferred)
 
 ## Edit Weekly / Monthly
 
 1. Update `meta` values (`main_title`, `subtitle`, `block_height`, `max_supply_btc`, `circulating_supply_btc`, `hashrate_eh_s`, `hashrate_scale_eh_s`, `snapshot_*`, `tldr_*`, `conclusion_*`, `cta_*`, `address_line`, `footer_line`).
 2. Update `points` rows (max 10, unique `order`).
-3. Optionally update `distribution` rows.
+3. Optionally update bottom chart tabs: `BTC Price`, `Treasuries`, `Circulating BTC`, `Liquidations`.
 4. Optional auto-images:
 - Put files as `1.png`, `2.png`, ... `10.png` in `/Users/sebbo/Desktop/Newsletter/`
 - If `image_path` is empty, the script auto-uses the matching number if the file exists.
@@ -97,7 +118,11 @@ python3 /Users/sebbo/Desktop/Newsletter/build_newsletter.py \
   --google-sheet "YOUR_SHEET_ID" \
   --google-meta-tab "meta" \
   --google-points-tab "points" \
-  --google-distribution-tab "distribution"
+  --google-live-prices-tab "live_prices" \
+  --google-btc-price-tab "BTC Price" \
+  --google-treasuries-tab "Treasuries" \
+  --google-circulating-tab "Circulating BTC" \
+  --google-liquidations-tab "Liquidations"
 ```
 
 Google Sheets access requirement:
@@ -120,7 +145,7 @@ When you open `/Users/sebbo/Desktop/Newsletter/newsletter.html` in a browser, th
 - Excel mode: saves `/Users/sebbo/Desktop/Newsletter/history/newsletter_YYYY-MM-DD_HHMM.xlsx`
 - Google Sheets mode: saves one workbook snapshot:
   - `/Users/sebbo/Desktop/Newsletter/history/newsletter_YYYY-MM-DD_HHMM.xlsx`
-  - with tabs `meta`, `points`, and `distribution` (when present)
+  - with tabs `meta`, `points`, and any available chart tabs (`live_prices`, `BTC Price`, `Treasuries`, `Circulating BTC`, `Liquidations`)
 
 ## New Template File (if needed)
 

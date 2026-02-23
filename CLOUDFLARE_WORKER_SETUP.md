@@ -9,7 +9,7 @@ This project now includes a Worker that renders the newsletter directly from Goo
 - Wrangler config: `/Users/sebbo/Desktop/Newsletter/wrangler.toml`
 - Static assets: `/Users/sebbo/Desktop/Newsletter/public/` (logo + point images)
 - Google Sheet source: `1ukXTu8PXWHGe4Fzg5rA424BmN6Bi3FPAWwA12QybNpI`
-- Tab names: `live_prices`, `meta`, `points`, `distribution`
+- Tab names: `live_prices`, `meta`, `points`, `BTC Price`, `Treasuries`, `Circulating BTC`, `Liquidations`
 - Refresh window: `120` seconds (`CACHE_TTL_SECONDS`)
 
 ## Deploy

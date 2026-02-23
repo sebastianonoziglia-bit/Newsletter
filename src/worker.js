@@ -24,6 +24,7 @@ const DEFAULT_META = {
   cta_label: "globalite.co",
   address_line: "Globalite, Lugano, Piazza dell'Indipendenza 3, CAP 6901",
   footer_line: "Globalite Macro Brief - For internal distribution.",
+  hero_image_url: "/hero.png",
   footer_logo_url: "/logotosite.png",
   footer_instagram_icon: "/instagram.png",
   footer_x_icon: "/x:twitter.png",
@@ -32,17 +33,6 @@ const DEFAULT_META = {
   auto_image_by_order: "true",
   logo_url: "/brand_orange_bg_transparent@2xSite.svg",
 };
-
-const DEFAULT_DISTRIBUTION = [
-  ["Individuals", 13660000, "rgb(255, 66, 2)"],
-  ["Lost Bitcoin", 1570000, "rgb(153, 153, 153)"],
-  ["Funds & ETFs", 1490000, "rgb(255, 140, 90)"],
-  ["Businesses", 1390000, "rgb(255, 107, 61)"],
-  ["To Be Mined", 1040000, "rgb(204, 204, 204)"],
-  ["Satoshi / Patoshi", 968000, "rgb(255, 200, 150)"],
-  ["Governments", 432000, "rgb(255, 173, 120)"],
-  ["Other Entities", 421000, "rgb(255, 227, 180)"],
-];
 
 export default {
   async fetch(request, env, ctx) {
@@ -93,32 +83,80 @@ export default {
 
       const metaTab = normalizeText(env.GOOGLE_META_TAB) || "meta";
       const pointsTab = normalizeText(env.GOOGLE_POINTS_TAB) || "points";
-      const distributionTab =
-        normalizeText(env.GOOGLE_DISTRIBUTION_TAB) || "distribution";
       const livePricesTab =
         normalizeText(env.GOOGLE_LIVE_PRICES_TAB) || "live_prices";
+      const btcPriceTab =
+        normalizeText(env.GOOGLE_BTC_PRICE_TAB) || "BTC Price";
+      const treasuriesTab =
+        normalizeText(env.GOOGLE_TREASURIES_TAB) || "Treasuries";
+      const circulatingTab =
+        normalizeText(env.GOOGLE_CIRCULATING_TAB) || "Circulating BTC";
+      const liquidationsTab =
+        normalizeText(env.GOOGLE_LIQUIDATIONS_TAB) || "Liquidations";
 
-      const [metaRows, pointsRows, distributionRows, livePriceRows] =
+      const [
+        metaRows,
+        pointsRows,
+        livePriceRows,
+        btcPriceRows,
+        treasuriesRows,
+        circulatingRows,
+        liquidationsRows,
+      ] =
         await Promise.all([
           fetchGoogleTabRows(sheetId, metaTab, true),
           fetchGoogleTabRows(sheetId, pointsTab, true),
-          fetchGoogleTabRows(sheetId, distributionTab, false),
           fetchGoogleTabRows(sheetId, livePricesTab, false),
+          fetchGoogleTabRows(sheetId, btcPriceTab, false),
+          fetchGoogleTabRows(sheetId, treasuriesTab, false),
+          fetchGoogleTabRows(sheetId, circulatingTab, false),
+          fetchGoogleTabRows(sheetId, liquidationsTab, false),
         ]);
 
       const meta = readMeta(metaRows);
       const points = readPoints(pointsRows);
-      const maxSupply = parseNumber(meta.max_supply_btc, 21_000_000);
-      const distribution = distributionRows.length
-        ? readDistribution(distributionRows, maxSupply)
-        : defaultDistributionSegments(maxSupply);
-      const liveBtc = livePriceRows.length ? readLiveBtcPrice(livePriceRows) : null;
+      const liveBtc = livePriceRows.length
+        ? safeOptionalParse(livePricesTab, () => readLiveBtcPrice(livePriceRows), null)
+        : null;
+      const btcPricePoints = btcPriceRows.length
+        ? safeOptionalParse(btcPriceTab, () => readBtcPricePoints(btcPriceRows), [])
+        : [];
+      const treasuryBars = treasuriesRows.length
+        ? safeOptionalParse(treasuriesTab, () => readTreasuryBars(treasuriesRows), [])
+        : [];
+      let circulatingMetric = circulatingRows.length
+        ? safeOptionalParse(circulatingTab, () => readCirculatingMetric(circulatingRows), null)
+        : null;
+      const liquidationBars = liquidationsRows.length
+        ? safeOptionalParse(liquidationsTab, () => readLiquidationBars(liquidationsRows), [])
+        : [];
+      if (!circulatingMetric) {
+        const maxSupply = parseNumber(meta.max_supply_btc, 21_000_000);
+        const circulatingSupply = parseNumber(meta.circulating_supply_btc, 0);
+        if (circulatingSupply > 0 && maxSupply > 0) {
+          circulatingMetric = {
+            as_of_date: "",
+            circulating_supply_btc: circulatingSupply,
+            max_supply_btc: maxSupply,
+            note: "",
+          };
+        }
+      }
 
-      const html = renderHtml(meta, points, distribution, liveBtc, {
+      const html = renderHtml(
+        meta,
+        points,
+        btcPricePoints,
+        treasuryBars,
+        circulatingMetric,
+        liquidationBars,
+        liveBtc,
+        {
         useR2Images: Boolean(env.IMAGES),
         r2ImagePrefix: normalizeText(env.R2_IMAGE_PREFIX) || "image",
         r2ImageExt: normalizeText(env.R2_IMAGE_EXT) || "jpg",
-      });
+        }
+      );
       const response = new Response(html, {
         headers: {
           "content-type": "text/html; charset=utf-8",
@@ -183,6 +221,15 @@ function normalizeTtl(value) {
     return 120;
   }
   return Math.max(30, parsed);
+}
+
+function safeOptionalParse(tabName, parser, fallback) {
+  try {
+    return parser();
+  } catch (error) {
+    console.warn(`Skipping tab '${tabName}': ${error.message}`);
+    return fallback;
+  }
 }
 
 async function fetchGoogleTabRows(sheetId, tabName, required) {
@@ -386,84 +433,6 @@ function readPoints(rows) {
   return points;
 }
 
-function defaultDistributionSegments(maxSupplyBtc) {
-  return finalizeDistributionSegments(
-    DEFAULT_DISTRIBUTION.map(([category, amountBtc, color]) => ({
-      category,
-      amount_btc: Number(amountBtc),
-      percent: 0,
-      color,
-    })),
-    maxSupplyBtc
-  );
-}
-
-function finalizeDistributionSegments(segments, maxSupplyBtc) {
-  if (!segments.length) {
-    return [];
-  }
-
-  let denominator = maxSupplyBtc > 0 ? maxSupplyBtc : segments.reduce((acc, s) => acc + s.amount_btc, 0);
-  if (denominator <= 0) {
-    denominator = 1;
-  }
-
-  let normalized = segments.map((segment) => ({
-    ...segment,
-    percent: segment.percent > 0 ? segment.percent : (segment.amount_btc / denominator) * 100,
-  }));
-
-  const totalPercent = normalized.reduce((acc, s) => acc + s.percent, 0);
-  if (totalPercent > 0) {
-    normalized = normalized.map((segment) => ({
-      ...segment,
-      percent: (segment.percent / totalPercent) * 100,
-    }));
-  }
-
-  normalized.sort((a, b) => b.amount_btc - a.amount_btc);
-  return normalized;
-}
-
-function readDistribution(rows, maxSupplyBtc) {
-  if (!rows.length) {
-    return defaultDistributionSegments(maxSupplyBtc);
-  }
-
-  const mapping = headerIndexMap(rows, ["category", "amount_btc", "color"]);
-  const segments = [];
-
-  for (let i = 1; i < rows.length; i += 1) {
-    const row = rows[i];
-    const category = normalizeText(row[mapping.category]);
-    const amountBtc = parseNumber(row[mapping.amount_btc], 0);
-    const color = normalizeText(row[mapping.color]) || "rgb(255, 66, 2)";
-    const percent = "percent" in mapping ? parseNumber(row[mapping.percent], 0) : 0;
-
-    if (!category && amountBtc <= 0) {
-      continue;
-    }
-    if (!category) {
-      throw new Error("Distribution row is missing category.");
-    }
-    if (amountBtc < 0) {
-      throw new Error(`Distribution amount cannot be negative for category '${category}'.`);
-    }
-
-    segments.push({
-      category,
-      amount_btc: amountBtc,
-      percent,
-      color,
-    });
-  }
-
-  if (!segments.length) {
-    return defaultDistributionSegments(maxSupplyBtc);
-  }
-  return finalizeDistributionSegments(segments, maxSupplyBtc);
-}
-
 function readLiveBtcPrice(rows) {
   if (!rows.length) {
     return null;
@@ -494,7 +463,216 @@ function readLiveBtcPrice(rows) {
   return null;
 }
 
-function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
+function parseDateValue(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+  const text = normalizeText(value);
+  if (!text) {
+    return null;
+  }
+  const clean = text.endsWith("Z") ? text.slice(0, -1) : text;
+  const direct = new Date(clean);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+  const mdy = clean.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/);
+  if (mdy) {
+    const month = Number(mdy[1]) - 1;
+    const day = Number(mdy[2]);
+    let year = Number(mdy[3]);
+    if (year < 100) {
+      year += 2000;
+    }
+    const parsed = new Date(year, month, day);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function renderDateLabel(value) {
+  const parsed = parseDateValue(value);
+  if (parsed) {
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+    const dd = String(parsed.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return normalizeText(value);
+}
+
+function cleanEntityLabel(value, maxChars = 18) {
+  const cleaned = normalizeText(value).replace(/\\s*\\(.*?\\)/g, "");
+  if (cleaned.length <= maxChars) {
+    return cleaned;
+  }
+  return `${cleaned.slice(0, maxChars - 1).trimEnd()}…`;
+}
+
+function readBtcPricePoints(rows, limit = 60) {
+  if (!rows.length) {
+    return [];
+  }
+  const mapping = headerIndexMap(rows, ["date", "price"]);
+  const points = [];
+
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    const price = parseNumber(row[mapping.price], Number.NaN);
+    if (!(price > 0)) {
+      continue;
+    }
+    const dateRaw = row[mapping.date];
+    points.push({
+      idx: i,
+      dateValue: parseDateValue(dateRaw),
+      point: {
+        date_label: renderDateLabel(dateRaw),
+        price,
+      },
+    });
+  }
+
+  if (!points.length) {
+    return [];
+  }
+
+  if (points.some((item) => item.dateValue !== null)) {
+    points.sort((a, b) => {
+      if (a.dateValue === null && b.dateValue === null) return a.idx - b.idx;
+      if (a.dateValue === null) return 1;
+      if (b.dateValue === null) return -1;
+      return a.dateValue - b.dateValue;
+    });
+  }
+
+  const ordered = points.map((item) => item.point);
+  return ordered.slice(-limit);
+}
+
+function readTreasuryBars(rows, limit = 6) {
+  if (!rows.length) {
+    return [];
+  }
+  const mapping = headerIndexMap(rows, ["entity", "btc"]);
+  const rowTypeIdx = "row_type" in mapping ? mapping.row_type : -1;
+  const bars = [];
+
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    const rowType = rowTypeIdx >= 0 ? normalizeText(row[rowTypeIdx]).toLowerCase() : "";
+    if (rowType && rowType !== "entity") {
+      continue;
+    }
+    const entity = normalizeText(row[mapping.entity]);
+    const btc = parseNumber(row[mapping.btc], 0);
+    if (!entity || btc <= 0) {
+      continue;
+    }
+    bars.push({ entity, btc });
+  }
+
+  bars.sort((a, b) => b.btc - a.btc);
+  return bars.slice(0, limit);
+}
+
+function readCirculatingMetric(rows) {
+  if (!rows.length) {
+    return null;
+  }
+  const mapping = headerIndexMap(rows, ["circulating_supply_btc", "max_supply_btc"]);
+  const asOfIdx = "as_of_date" in mapping ? mapping.as_of_date : -1;
+  const noteIdx = "note" in mapping ? mapping.note : -1;
+  const candidates = [];
+
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    const circulating = parseNumber(row[mapping.circulating_supply_btc], 0);
+    let maxSupply = parseNumber(row[mapping.max_supply_btc], 21_000_000);
+    if (maxSupply <= 0) {
+      maxSupply = 21_000_000;
+    }
+    if (circulating <= 0 && maxSupply <= 0) {
+      continue;
+    }
+
+    const asOfRaw = asOfIdx >= 0 ? row[asOfIdx] : "";
+    candidates.push({
+      idx: i,
+      dateValue: parseDateValue(asOfRaw),
+      metric: {
+        as_of_date: renderDateLabel(asOfRaw),
+        circulating_supply_btc: circulating,
+        max_supply_btc: maxSupply,
+        note: noteIdx >= 0 ? normalizeText(row[noteIdx]) : "",
+      },
+    });
+  }
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  if (candidates.some((item) => item.dateValue !== null)) {
+    candidates.sort((a, b) => {
+      if (a.dateValue === null && b.dateValue === null) return a.idx - b.idx;
+      if (a.dateValue === null) return 1;
+      if (b.dateValue === null) return -1;
+      return a.dateValue - b.dateValue;
+    });
+  }
+  return candidates[candidates.length - 1].metric;
+}
+
+function readLiquidationBars(rows, limit = 6) {
+  if (!rows.length) {
+    return [];
+  }
+  const mapping = headerIndexMap(rows, ["label", "longs", "shorts"]);
+  const periodTypeIdx = "period_type" in mapping ? mapping.period_type : -1;
+  const periodKeyIdx = "period_key" in mapping ? mapping.period_key : -1;
+  const totalIdx = "total" in mapping ? mapping.total : -1;
+
+  const collect = (monthlyOnly) => {
+    const bars = [];
+    for (let i = 1; i < rows.length; i += 1) {
+      const row = rows[i];
+      const periodType = periodTypeIdx >= 0 ? normalizeText(row[periodTypeIdx]).toLowerCase() : "";
+      if (monthlyOnly && periodType && periodType !== "monthly") {
+        continue;
+      }
+      const label = normalizeText(row[mapping.label]) || (periodKeyIdx >= 0 ? normalizeText(row[periodKeyIdx]) : "");
+      const longs = Math.max(0, parseNumber(row[mapping.longs], 0));
+      const shorts = Math.max(0, parseNumber(row[mapping.shorts], 0));
+      let total = totalIdx >= 0 ? parseNumber(row[totalIdx], longs + shorts) : longs + shorts;
+      if (total <= 0) {
+        total = longs + shorts;
+      }
+      if (!label || total <= 0) {
+        continue;
+      }
+      bars.push({ label, longs, shorts, total });
+    }
+    return bars;
+  };
+
+  const bars = collect(true);
+  const finalBars = bars.length ? bars : collect(false);
+  return finalBars.slice(-limit);
+}
+
+function renderHtml(
+  meta,
+  points,
+  btcPricePoints,
+  treasuryBars,
+  circulatingMetric,
+  liquidationBars,
+  liveBtc,
+  imageOptions
+) {
   const title = escapeHtml(meta.main_title);
   const subtitle = escapeHtml(meta.subtitle);
   const eyebrow = escapeHtml(meta.eyebrow);
@@ -503,22 +681,27 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
   const tldrContent = indentBlock(renderContentBlocks(meta.tldr_content), 16);
   const conclusionTitle = escapeHtml(meta.conclusion_title);
   const conclusionContent = indentBlock(renderContentBlocks(meta.conclusion_content), 16);
-  const ctaUrl = escapeHtml(meta.cta_url, true);
-  const ctaLabel = escapeHtml(meta.cta_label);
   const addressLine = escapeHtml(meta.address_line);
   const footerLine = escapeHtml(meta.footer_line);
+  const heroImageUrl = escapeHtml(resolveHeroImage(meta), true);
   const resolvedLogo = resolveLogo(meta);
   const logoUrl = escapeHtml(resolvedLogo, true);
-  const footerLogoUrl = escapeHtml(normalizeText(meta.footer_logo_url) || "/logotosite.png", true);
-  const footerInstagramIcon = escapeHtml(normalizeText(meta.footer_instagram_icon) || "/instagram.png", true);
-  const footerXIcon = escapeHtml(normalizeText(meta.footer_x_icon) || "/x:twitter.png", true);
-  const footerLinkedinIcon = escapeHtml(normalizeText(meta.footer_linkedin_icon) || "/linkedin.png", true);
+  const footerLogoUrl = escapeHtml(resolveAssetPath(meta.footer_logo_url, "/logotosite.png"), true);
+  const footerInstagramIcon = escapeHtml(resolveAssetPath(meta.footer_instagram_icon, "/instagram.png"), true);
+  const footerXIcon = escapeHtml(resolveAssetPath(meta.footer_x_icon, "/x:twitter.png"), true);
+  const footerLinkedinIcon = escapeHtml(resolveAssetPath(meta.footer_linkedin_icon, "/linkedin.png"), true);
 
   const pointsHtml = points
     .map((point) => renderPoint(point, meta, imageOptions))
     .join("");
-  const snapshotHtml = renderSnapshotSection(meta, distribution);
-  const liveBtcHtml = renderLiveBtcChip(liveBtc);
+  const marketHtml = renderMarketSection(
+    meta,
+    btcPricePoints,
+    treasuryBars,
+    circulatingMetric,
+    liquidationBars,
+    liveBtc
+  );
 
   return `<!doctype html>
 <html lang="en">
@@ -548,14 +731,15 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
       .wrapper { width: 100%; background: #f5f5f5; padding: 32px 0; }
       .container { width: 680px; max-width: 680px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
-      .header { padding: 28px 32px 18px; }
-      .logo { margin: 0 0 16px; text-align: center; }
-      .logo img { width: 190px; margin: 0 auto; }
-      .eyebrow { color: #ff4202; font-weight: 700; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 6px; }
-      h1 { margin: 6px 0 6px; font-size: 28px; line-height: 1.2; font-weight: 700; }
-      .subtitle { margin: 0; color: #5f5f5f; font-size: 14px; line-height: 1.6; }
-      .block-height { margin: 12px 0 0; display: inline-block; font-size: 12px; line-height: 1.4; color: #8f3a1a; background: #fff1eb; border: 1px solid #ffd6c8; border-radius: 999px; padding: 6px 10px; }
-      .live-price { margin: 10px 0 0; font-size: 12px; color: #4f4f4f; }
+      .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
+      .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }
+      .hero-gradient { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.72) 100%); }
+      .hero-content { position: relative; z-index: 2; padding: 28px 32px; }
+      .hero-logo img { width: 150px; height: auto; display: block; margin: 0 0 14px; }
+      .hero-eyebrow { color: #ff4202; font-weight: 700; font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; margin: 0 0 6px; }
+      .hero-title { margin: 0 0 6px; font-size: 28px; font-weight: 700; color: #ffffff; }
+      .hero-subtitle { margin: 0 0 14px; color: rgba(255,255,255,0.6); font-size: 14px; }
+      .hero-badge { display: inline-block; font-size: 11px; color: #ffcfb8; background: rgba(255,66,2,0.25); border: 1px solid rgba(255,66,2,0.45); border-radius: 999px; padding: 5px 12px; }
       .section { padding: 16px 32px; border-top: 1px solid #f0f0f0; }
       .section h2 { margin: 0 0 20px; font-size: 18px; font-weight: 700; }
       .section p { margin: 0; font-size: 14px; line-height: 1.6; }
@@ -568,49 +752,62 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
       .extra-images { margin: 14px 0 0; display: grid; gap: 10px; }
       .extra-images img { width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }
-      .snapshot { background: #fcfcfc; }
-      .snapshot-intro { margin: 0 0 14px; font-size: 14px; color: #4f4f4f; }
-      .snapshot-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-      .snapshot-card { border: 1px solid #ececec; border-radius: 12px; padding: 12px; background: #ffffff; }
-      .snapshot-card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #1f1f1f; }
-      .snapshot-ownership-viz { display: flex; justify-content: center; margin: 0 0 10px; }
-      .snapshot-donut { width: 132px; height: 132px; display: block; }
-      .snapshot-donut-segment { fill: none; stroke-width: 24; transform: rotate(-90deg); transform-origin: 60px 60px; }
-      .snapshot-donut-label { font-size: 10px; fill: #8a8a8a; }
-      .snapshot-donut-value { font-size: 10px; fill: #5f5f5f; }
-      .snapshot-bar { width: 100%; height: 24px; border: 1px solid #e6e6e6; border-radius: 8px; overflow: hidden; display: flex; }
-      .snapshot-bar-segment { height: 100%; min-width: 2px; }
-      .snapshot-legend { margin-top: 10px; display: grid; gap: 6px; }
-      .snapshot-legend-item { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 8px; }
-      .snapshot-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
-      .snapshot-name { font-size: 12px; color: #3f3f3f; }
-      .snapshot-value { font-size: 12px; color: #5f5f5f; white-space: nowrap; }
-      .snapshot-circ-value { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #1f1f1f; }
-      .snapshot-progress-track { width: 100%; height: 14px; border: 1px solid #e0e0e0; border-radius: 999px; background: #f0f0f0; overflow: hidden; }
-      .snapshot-progress-fill { height: 100%; background: linear-gradient(90deg, #ff4202 0%, #ff8b61 100%); }
-      .snapshot-circ-note { margin: 8px 0 0; font-size: 12px; color: #666666; }
-      .snapshot-footnote { margin: 12px 0 0; font-size: 12px; color: #7a7a7a; }
+      .market { background: #070707; color: #f4f4f4; border-top: 1px solid #171717; }
+      .market h2 { color: #ffffff; margin-bottom: 8px; }
+      .market-intro { margin: 0 0 12px; color: #b8b8b8; font-size: 13px; }
+      .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
+      .market-live strong { color: #ffffff; }
+      .market-live span { color: #ffcfb8; }
+      .market-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .market-card { border: 1px solid #1e1e1e; border-radius: 12px; padding: 12px; background: #101010; }
+      .market-card h3 { margin: 0 0 10px; color: #ffffff; font-size: 14px; font-weight: 700; }
+      .market-price-card { grid-column: 1 / -1; }
+      .market-price-svg { width: 100%; height: auto; display: block; }
+      .market-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; min-height: 180px; }
+      .market-bar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .market-bar-track { width: 100%; max-width: 72px; height: 128px; border-radius: 8px; border: 1px solid #2a2a2a; background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+      .market-bar-fill { width: 100%; background: linear-gradient(180deg, #ff8b61 0%, #ff4202 100%); }
+      .market-liq-track { justify-content: flex-end; }
+      .market-liq-short { width: 100%; background: #8f3a1d; }
+      .market-liq-long { width: 100%; background: #ff4202; }
+      .market-bar-label { margin: 0; font-size: 11px; color: #d0d0d0; text-align: center; line-height: 1.3; }
+      .market-bar-value { margin: 0; font-size: 11px; color: #ffcfb8; }
+      .market-legend { display: flex; gap: 14px; margin: 0 0 8px; font-size: 11px; color: #bcbcbc; }
+      .market-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+      .market-legend .dot-long { background: #ff4202; }
+      .market-legend .dot-short { background: #8f3a1d; }
+      .market-circ-card .market-circ-value { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #ffffff; }
+      .market-progress-track { width: 100%; height: 14px; border: 1px solid #2a2a2a; border-radius: 999px; background: #0c0c0c; overflow: hidden; }
+      .market-progress-fill { height: 100%; background: linear-gradient(90deg, #ff4202 0%, #ff8b61 100%); }
+      .market-subnote { margin: 8px 0 0; font-size: 12px; color: #b9b9b9; }
+      .market-note { margin: 8px 0 0; font-size: 11px; color: #8e8e8e; }
+      .market-empty { margin: 0; color: #9a9a9a; font-size: 12px; }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
-      .footer { padding: 18px 32px 28px; font-size: 12px; color: #7a7a7a; }
-      .footer p { margin: 0; }
-      .footer p + p { margin-top: 6px; }
-      .footer-links { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ececec; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      .footer-panel { border: 1px solid #ececec; border-radius: 12px; background: #fafafa; padding: 10px; }
-      .footer-panel-title { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: #8a8a8a; font-family: "Poppins", Arial, sans-serif; }
-      .footer-logo-link { display: inline-flex; align-items: center; gap: 8px; color: #1f1f1f; font-size: 12px; font-weight: 600; }
-      .footer-logo-link img { width: 52px; height: 52px; object-fit: cover; border-radius: 20px; border: 1px solid #e0e0e0; }
-      .footer-social { display: flex; flex-direction: column; gap: 6px; }
-      .footer-social a { display: inline-flex; align-items: center; gap: 8px; color: #1f1f1f; font-size: 12px; font-weight: 600; font-family: "Poppins", Arial, sans-serif; }
-      .footer-social img { width: 30px; height: 30px; object-fit: contain; border-radius: 8px; }
+      .footer { padding: 0; font-size: 12px; color: #7a7a7a; }
+      .footer-legal { padding: 16px 32px 12px; }
+      .footer-dark { background: #0f0f0f; padding: 22px 32px; }
+      .footer-bar { display: flex; align-items: center; justify-content: space-between; }
+      .footer-site-link { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+      .footer-site-link img { width: 36px; height: 36px; border-radius: 10px; object-fit: contain; }
+      .footer-site-name { display: block; color: #ffffff; font-size: 13px; font-weight: 700; }
+      .footer-site-url { display: block; color: #ff4202; font-size: 11px; }
+      .footer-socials { display: flex; gap: 8px; }
+      .footer-social-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.08); border-radius: 10px; }
+      .footer-social-btn img { width: 18px; height: 18px; filter: brightness(0) invert(1); }
+      .footer-copy { margin: 14px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; }
       @media (max-width: 720px) {
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
-        .header, .section, .footer { padding: 18px 20px; }
-        .snapshot-grid { grid-template-columns: 1fr; }
-        .footer-links { grid-template-columns: 1fr; }
-        h1 { font-size: 24px; }
+        .section { padding: 18px 20px; }
+        .hero-content { padding: 20px; }
+        .hero-title { font-size: 22px; }
+        .market-grid { grid-template-columns: 1fr; }
+        .market-price-card { grid-column: auto; }
+        .footer-legal { padding: 14px 20px 10px; }
+        .footer-dark { padding: 18px 20px; }
+        .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
       }
       @media print {
         .no-print { display: none !important; }
@@ -632,15 +829,16 @@ function renderHtml(meta, points, distribution, liveBtc, imageOptions) {
               <td class="divider">&nbsp;</td>
             </tr>
             <tr>
-              <td class="header">
-                <div class="logo">
-                  <img src="${logoUrl}" alt="Globalite">
+              <td class="hero">
+                <img class="hero-bg" src="${heroImageUrl}" alt="">
+                <div class="hero-gradient"></div>
+                <div class="hero-content">
+                  <div class="hero-logo"><img src="${logoUrl}" alt="Globalite"></div>
+                  <p class="hero-eyebrow">${eyebrow}</p>
+                  <h1 class="hero-title">${title}</h1>
+                  <p class="hero-subtitle">${subtitle}</p>
+                  <span class="hero-badge">Written at block height: <strong>${blockHeight}</strong></span>
                 </div>
-                <p class="eyebrow">${eyebrow}</p>
-                <h1>${title}</h1>
-                <p class="subtitle">${subtitle}</p>
-                <p class="block-height">This article was written at block height: <strong>${blockHeight}</strong></p>
-                ${liveBtcHtml}
               </td>
             </tr>
 ${pointsHtml}
@@ -656,27 +854,29 @@ ${tldrContent}
 ${conclusionContent}
               </td>
             </tr>
-${snapshotHtml}
+${marketHtml}
             <tr>
               <td class="footer">
-                <p>${footerLine}</p>
-                <p>${addressLine}</p>
-                <div class="footer-links">
-                  <div class="footer-panel">
-                    <p class="footer-panel-title">Site</p>
-                    <a class="footer-logo-link" href="https://globalite.co" target="_blank" rel="noopener noreferrer">
-                      <img src="${footerLogoUrl}" alt="Globalite logo">
-                      <span>globalite.co</span>
+                <div class="footer-legal">
+                  <p>${footerLine}</p>
+                  <p>${addressLine}</p>
+                </div>
+                <div class="footer-dark">
+                  <div class="footer-bar">
+                    <a class="footer-site-link" href="https://globalite.co" target="_blank">
+                      <img src="${footerLogoUrl}" alt="Globalite">
+                      <span>
+                        <span class="footer-site-name">Globalite</span>
+                        <span class="footer-site-url">globalite.co</span>
+                      </span>
                     </a>
-                  </div>
-                  <div class="footer-panel">
-                    <p class="footer-panel-title">Socials</p>
-                    <div class="footer-social">
-                      <a href="https://www.instagram.com/globalite.sa/" target="_blank" rel="noopener noreferrer"><img src="${footerInstagramIcon}" alt="Instagram"><span>Instagram</span></a>
-                      <a href="https://x.com/globalite_sa" target="_blank" rel="noopener noreferrer"><img src="${footerXIcon}" alt="X"><span>X</span></a>
-                      <a href="https://www.linkedin.com/company/globalite-sa" target="_blank" rel="noopener noreferrer"><img src="${footerLinkedinIcon}" alt="LinkedIn"><span>LinkedIn</span></a>
+                    <div class="footer-socials">
+                      <a class="footer-social-btn" href="https://www.instagram.com/globalite.sa/"><img src="${footerInstagramIcon}" alt="Instagram"></a>
+                      <a class="footer-social-btn" href="https://x.com/globalite_sa"><img src="${footerXIcon}" alt="X"></a>
+                      <a class="footer-social-btn" href="https://www.linkedin.com/company/globalite-sa"><img src="${footerLinkedinIcon}" alt="LinkedIn"></a>
                     </div>
                   </div>
+                  <p class="footer-copy">© 2026 Globalite SA. All rights reserved.</p>
                 </div>
               </td>
             </tr>
@@ -750,117 +950,233 @@ function renderExtraImagesBlock(point, imageSources) {
   return '<div class="extra-images">\n' + imageTags + "\n</div>";
 }
 
-function renderSnapshotSection(meta, distribution) {
-  const snapshotTitle = escapeHtml(meta.snapshot_title || "At The Time Of Writing");
-  const snapshotIntro = escapeHtml(meta.snapshot_intro || "");
-  const snapshotNote = escapeHtml(meta.snapshot_note || "");
-  let maxSupplyBtc = parseNumber(meta.max_supply_btc, 21_000_000);
-  if (maxSupplyBtc <= 0) {
-    maxSupplyBtc = 21_000_000;
+function formatUsd(value) {
+  const absValue = Math.abs(value);
+  if (absValue >= 1000) {
+    return `$${Math.round(value).toLocaleString("en-US")}`;
+  }
+  return `$${Number(value).toFixed(2)}`.replace(/\.00$/, "");
+}
+
+function buildBtcPriceChartSvg(points) {
+  if (!points.length) {
+    return '<p class="market-empty">No BTC price points found.</p>';
   }
 
-  let circulatingBtc = parseNumber(meta.circulating_supply_btc, 0);
-  if (circulatingBtc <= 0) {
-    circulatingBtc = Math.max(
-      0,
-      maxSupplyBtc -
-        distribution
-          .filter((segment) => segment.category.trim().toLowerCase() === "to be mined")
-          .reduce((acc, segment) => acc + segment.amount_btc, 0)
+  const width = 620;
+  const height = 230;
+  const padLeft = 54;
+  const padRight = 14;
+  const padTop = 14;
+  const padBottom = 34;
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+  const plotBottom = padTop + plotHeight;
+
+  let minPrice = Math.min(...points.map((point) => point.price));
+  let maxPrice = Math.max(...points.map((point) => point.price));
+  if (maxPrice <= minPrice) {
+    maxPrice = minPrice + 1;
+  }
+
+  const padding = Math.max((maxPrice - minPrice) * 0.08, maxPrice * 0.01);
+  minPrice = Math.max(0, minPrice - padding);
+  maxPrice += padding;
+  const span = maxPrice - minPrice;
+  const denominator = Math.max(1, points.length - 1);
+
+  const coords = points.map((point, idx) => {
+    const x = padLeft + (plotWidth * idx) / denominator;
+    const y = padTop + ((maxPrice - point.price) / span) * plotHeight;
+    return { x, y };
+  });
+
+  const linePath = `M ${coords.map((item) => `${item.x.toFixed(2)} ${item.y.toFixed(2)}`).join(" L ")}`;
+  const areaPath =
+    `M ${coords[0].x.toFixed(2)} ${plotBottom.toFixed(2)} ` +
+    `${coords.map((item) => `L ${item.x.toFixed(2)} ${item.y.toFixed(2)}`).join(" ")} ` +
+    `L ${coords[coords.length - 1].x.toFixed(2)} ${plotBottom.toFixed(2)} Z`;
+
+  const gridLines = [];
+  const yLabels = [];
+  for (let step = 0; step < 5; step += 1) {
+    const y = padTop + (plotHeight * step) / 4;
+    const value = maxPrice - ((maxPrice - minPrice) * step) / 4;
+    gridLines.push(
+      `<line x1="${padLeft.toFixed(2)}" y1="${y.toFixed(2)}" x2="${(width - padRight).toFixed(2)}" y2="${y.toFixed(2)}" stroke="#262626" stroke-width="1" />`
+    );
+    yLabels.push(
+      `<text x="${(padLeft - 8).toFixed(2)}" y="${(y + 4).toFixed(2)}" text-anchor="end" fill="#8b8b8b" font-size="10">${escapeHtml(formatUsd(value))}</text>`
     );
   }
 
-  const circulationPct = maxSupplyBtc > 0 ? (circulatingBtc / maxSupplyBtc) * 100 : 0;
-  const hashrateEhS = parseNumber(meta.hashrate_eh_s, 0);
-  let hashrateScale = parseNumber(meta.hashrate_scale_eh_s, 1000);
-  if (hashrateScale <= 0) {
-    hashrateScale = 1000;
+  const firstLabel = escapeHtml(points[0].date_label);
+  const midLabel = escapeHtml(points[Math.floor(points.length / 2)].date_label);
+  const lastLabel = escapeHtml(points[points.length - 1].date_label);
+  const xLabels =
+    `<text x="${padLeft.toFixed(2)}" y="${(height - 8).toFixed(2)}" text-anchor="start" fill="#8b8b8b" font-size="10">${firstLabel}</text>` +
+    `<text x="${(padLeft + plotWidth / 2).toFixed(2)}" y="${(height - 8).toFixed(2)}" text-anchor="middle" fill="#8b8b8b" font-size="10">${midLabel}</text>` +
+    `<text x="${(width - padRight).toFixed(2)}" y="${(height - 8).toFixed(2)}" text-anchor="end" fill="#8b8b8b" font-size="10">${lastLabel}</text>`;
+
+  const last = coords[coords.length - 1];
+  return `
+<svg class="market-price-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Bitcoin price trend chart">
+  <defs>
+    <linearGradient id="priceAreaGradient" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ff4202" stop-opacity="0.42" />
+      <stop offset="100%" stop-color="#ff4202" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  ${gridLines.join("")}
+  ${yLabels.join("")}
+  <path d="${areaPath}" fill="url(#priceAreaGradient)" />
+  <path d="${linePath}" fill="none" stroke="#ff4202" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+  <circle cx="${last.x.toFixed(2)}" cy="${last.y.toFixed(2)}" r="4" fill="#ff4202" stroke="#ffffff" stroke-width="1" />
+  ${xLabels}
+</svg>`;
+}
+
+function renderTreasuryBars(treasuryBars) {
+  if (!treasuryBars.length) {
+    return '<p class="market-empty">No treasury rows found.</p>';
   }
-  const hashratePct = hashrateScale > 0 ? (hashrateEhS / hashrateScale) * 100 : 0;
-
-  const barSegments = distribution
-    .map(
-      (segment) =>
-        `                    <div class="snapshot-bar-segment" style="width:${Math.max(0, segment.percent).toFixed(6)}%;background:${escapeHtml(segment.color, true)};" title="${escapeHtml(segment.category)}: ${escapeHtml(formatBtcCompact(segment.amount_btc))} (${escapeHtml(formatPercent(segment.percent))})"></div>`
-    )
-    .join("\n");
-
-  const circumference = 2 * Math.PI * 45;
-  let consumed = 0;
-  const donutSegments = [];
-  for (const segment of distribution) {
-    const arc = circumference * (Math.max(0, segment.percent) / 100);
-    donutSegments.push(
-      `                      <circle class="snapshot-donut-segment" cx="60" cy="60" r="45" stroke="${escapeHtml(segment.color, true)}" stroke-dasharray="${arc.toFixed(6)} ${circumference.toFixed(6)}" stroke-dashoffset="${(-consumed).toFixed(6)}"><title>${escapeHtml(segment.category)}: ${escapeHtml(formatBtcCompact(segment.amount_btc))} (${escapeHtml(formatPercent(segment.percent))})</title></circle>`
-    );
-    consumed += arc;
+  let maxBtc = Math.max(...treasuryBars.map((item) => item.btc));
+  if (!(maxBtc > 0)) {
+    maxBtc = 1;
   }
-
-  const legendRows = distribution
-    .map(
-      (segment) =>
-        "                    <div class=\"snapshot-legend-item\">" +
-        `<span class="snapshot-dot" style="background:${escapeHtml(segment.color, true)}"></span>` +
-        `<span class="snapshot-name">${escapeHtml(segment.category)}</span>` +
-        `<span class="snapshot-value">${escapeHtml(formatBtcCompact(segment.amount_btc))} (${escapeHtml(formatPercent(segment.percent))})</span>` +
+  const barsHtml = treasuryBars
+    .map((item) => {
+      const height = Math.max(8, (item.btc / maxBtc) * 100);
+      return (
+        '<div class="market-bar-item">' +
+        `<div class="market-bar-track"><div class="market-bar-fill" style="height:${height.toFixed(6)}%;"></div></div>` +
+        `<p class="market-bar-label">${escapeHtml(cleanEntityLabel(item.entity))}</p>` +
+        `<p class="market-bar-value">${escapeHtml(formatBtcCompact(item.btc))}</p>` +
         "</div>"
+      );
+    })
+    .join("");
+  return `<div class="market-bars">${barsHtml}</div>`;
+}
+
+function renderLiquidationsBars(liquidationBars) {
+  if (!liquidationBars.length) {
+    return '<p class="market-empty">No liquidation rows found.</p>';
+  }
+  let maxTotal = Math.max(...liquidationBars.map((item) => item.total));
+  if (!(maxTotal > 0)) {
+    maxTotal = 1;
+  }
+  const barsHtml = liquidationBars
+    .map((item) => {
+      const longHeight = item.longs > 0 ? Math.max(4, (item.longs / maxTotal) * 100) : 0;
+      const shortHeight = item.shorts > 0 ? Math.max(4, (item.shorts / maxTotal) * 100) : 0;
+      const totalLabel = `$${Number(item.total).toFixed(2).replace(/\\.00$/, "")}B`;
+      return (
+        '<div class="market-bar-item">' +
+        '<div class="market-bar-track market-liq-track">' +
+        `<div class="market-liq-short" style="height:${shortHeight.toFixed(6)}%;"></div>` +
+        `<div class="market-liq-long" style="height:${longHeight.toFixed(6)}%;"></div>` +
+        "</div>" +
+        `<p class="market-bar-label">${escapeHtml(item.label)}</p>` +
+        `<p class="market-bar-value">${escapeHtml(totalLabel)}</p>` +
+        "</div>"
+      );
+    })
+    .join("");
+
+  return (
+    '<div class="market-legend">' +
+    '<span><i class="dot dot-long"></i>Longs</span>' +
+    '<span><i class="dot dot-short"></i>Shorts</span>' +
+    "</div>" +
+    `<div class="market-bars">${barsHtml}</div>`
+  );
+}
+
+function renderCirculatingCard(circulatingMetric) {
+  if (!circulatingMetric) {
+    return '<p class="market-empty">No circulating supply row found.</p>';
+  }
+  const maxSupply =
+    circulatingMetric.max_supply_btc > 0 ? circulatingMetric.max_supply_btc : 21_000_000;
+  const pct = Math.max(
+    0,
+    Math.min(
+      100,
+      maxSupply > 0 ? (circulatingMetric.circulating_supply_btc / maxSupply) * 100 : 0
     )
-    .join("\n");
+  );
+  const asOfHtml = circulatingMetric.as_of_date
+    ? `<p class="market-subnote">As of ${escapeHtml(circulatingMetric.as_of_date)}</p>`
+    : "";
+  const noteHtml = circulatingMetric.note
+    ? `<p class="market-note">${escapeHtml(circulatingMetric.note)}</p>`
+    : "";
+  return `
+<div class="market-circ-value">${escapeHtml(formatBtcInteger(circulatingMetric.circulating_supply_btc))} BTC</div>
+<div class="market-progress-track"><div class="market-progress-fill" style="width:${pct.toFixed(6)}%;"></div></div>
+<p class="market-subnote">${escapeHtml(formatPercent(pct))} of ${escapeHtml(formatBtcInteger(maxSupply))} BTC max supply</p>
+${asOfHtml}
+${noteHtml}`;
+}
+
+function renderMarketSection(
+  meta,
+  btcPricePoints,
+  treasuryBars,
+  circulatingMetric,
+  liquidationBars,
+  liveBtc
+) {
+  if (
+    !btcPricePoints.length &&
+    !treasuryBars.length &&
+    !circulatingMetric &&
+    !liquidationBars.length
+  ) {
+    return "";
+  }
+
+  const sectionTitle =
+    normalizeText(meta.market_section_title) || "Bitcoin Market Dashboard";
+  const sectionIntro =
+    normalizeText(meta.market_section_intro) ||
+    "Auto-rendered from BTC Price, Liquidations, Treasuries, and Circulating BTC tabs.";
+
+  const liveChip = liveBtc
+    ? `<p class="market-live">Live BTC: <strong>${escapeHtml(formatUsd(liveBtc.price))}</strong>${
+        liveBtc.date ? ` <span>(${escapeHtml(liveBtc.date)})</span>` : ""
+      }</p>`
+    : "";
 
   return `
             <tr>
-              <td class="section snapshot">
-                <h2>${snapshotTitle}</h2>
-                <p class="snapshot-intro">${snapshotIntro}</p>
-                <div class="snapshot-grid">
-                  <div class="snapshot-card">
-                    <h3>Ownership Distribution</h3>
-                    <div class="snapshot-ownership-viz">
-                      <svg class="snapshot-donut" viewBox="0 0 120 120" aria-label="Ownership distribution donut chart">
-                        <circle cx="60" cy="60" r="45" fill="none" stroke="#ececec" stroke-width="24"></circle>
-${donutSegments.join("\n")}
-                        <circle cx="60" cy="60" r="30" fill="#ffffff"></circle>
-                        <text x="60" y="56" text-anchor="middle" class="snapshot-donut-label">Supply</text>
-                        <text x="60" y="72" text-anchor="middle" class="snapshot-donut-value">${escapeHtml(formatBtcInteger(maxSupplyBtc))}</text>
-                      </svg>
-                    </div>
-                    <div class="snapshot-bar">
-${barSegments}
-                    </div>
-                    <div class="snapshot-legend">
-${legendRows}
-                    </div>
+              <td class="section market">
+                <h2>${escapeHtml(sectionTitle)}</h2>
+                <p class="market-intro">${escapeHtml(sectionIntro)}</p>
+                ${liveChip}
+                <div class="market-grid">
+                  <div class="market-card market-price-card">
+                    <h3>BTC Price</h3>
+                    ${buildBtcPriceChartSvg(btcPricePoints)}
                   </div>
-                  <div class="snapshot-card">
-                    <h3>Bitcoin In Circulation At Write Time</h3>
-                    <p class="snapshot-circ-value">${escapeHtml(formatBtcInteger(circulatingBtc))} BTC</p>
-                    <div class="snapshot-progress-track">
-                      <div class="snapshot-progress-fill" style="width:${Math.max(0, Math.min(100, circulationPct)).toFixed(6)}%;"></div>
-                    </div>
-                    <p class="snapshot-circ-note">${escapeHtml(formatPercent(circulationPct))} of ${escapeHtml(formatBtcInteger(maxSupplyBtc))} BTC max supply</p>
+                  <div class="market-card">
+                    <h3>Liquidations</h3>
+                    ${renderLiquidationsBars(liquidationBars)}
                   </div>
-                  <div class="snapshot-card">
-                    <h3>Network Hashrate (Daily)</h3>
-                    <p class="snapshot-circ-value">${escapeHtml(formatBtcInteger(hashrateEhS))} EH/s</p>
-                    <div class="snapshot-progress-track">
-                      <div class="snapshot-progress-fill" style="width:${Math.max(0, Math.min(100, hashratePct)).toFixed(6)}%;"></div>
-                    </div>
-                    <p class="snapshot-circ-note">${escapeHtml(formatPercent(hashratePct))} of ${escapeHtml(formatBtcInteger(hashrateScale))} EH/s reference scale</p>
+                  <div class="market-card">
+                    <h3>Treasuries (Top Holders)</h3>
+                    ${renderTreasuryBars(treasuryBars)}
+                  </div>
+                  <div class="market-card market-circ-card">
+                    <h3>Circulating BTC</h3>
+                    ${renderCirculatingCard(circulatingMetric)}
                   </div>
                 </div>
-                <p class="snapshot-footnote">${snapshotNote}</p>
               </td>
             </tr>
 `;
-}
-
-function renderLiveBtcChip(liveBtc) {
-  if (!liveBtc) {
-    return "";
-  }
-  const formatted = formatCurrency(liveBtc.price, liveBtc.currency || "USD");
-  const updatedText = liveBtc.date ? ` | updated ${escapeHtml(liveBtc.date)}` : "";
-  return `<p class="live-price">BTC live: <strong>${escapeHtml(formatted)}</strong>${updatedText}</p>`;
 }
 
 function resolveExtraImagePaths(point, meta, imageOptions) {
@@ -927,12 +1243,25 @@ function resolveImagePath(point, meta, imageOptions) {
   return `/${candidate.replace(/^\/+/, "")}`;
 }
 
-function resolveLogo(meta) {
-  const logo = normalizeText(meta.logo_url);
-  if (!logo) {
-    return "/brand_orange_bg_transparent@2xSite.svg";
+function resolveAssetPath(rawValue, fallbackPath) {
+  const raw = normalizeText(rawValue) || normalizeText(fallbackPath);
+  if (!raw) {
+    return "";
   }
-  return logo;
+  if (looksLikeRemoteImageSource(raw)) {
+    return raw;
+  }
+  const trimmed = raw.replace(/^\.\//, "").replace(/^\/+/, "");
+  const withoutPublic = trimmed.replace(/^public\//i, "");
+  return `/${withoutPublic.replace(/^\/+/, "")}`;
+}
+
+function resolveHeroImage(meta) {
+  return resolveAssetPath(meta.hero_image_url, "/hero.png");
+}
+
+function resolveLogo(meta) {
+  return resolveAssetPath(meta.logo_url, "/brand_orange_bg_transparent@2xSite.svg");
 }
 
 function looksLikeRemoteImageSource(path) {
@@ -1072,20 +1401,6 @@ function formatBtcCompact(value) {
 function formatPercent(value) {
   const rendered = Number(value).toFixed(1).replace(/\.0$/, "");
   return `${rendered}%`;
-}
-
-function formatCurrency(value, currency) {
-  const maybeCurrency = normalizeText(currency) || "USD";
-  const maximumFractionDigits = Math.abs(value) >= 1000 ? 0 : 2;
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: maybeCurrency,
-      maximumFractionDigits,
-    }).format(value);
-  } catch {
-    return `$${Number(value).toLocaleString("en-US")}`;
-  }
 }
 
 function escapeHtml(value, escapeQuotes = false) {
