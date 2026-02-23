@@ -952,7 +952,10 @@ def read_btc_price_points(
             )
         )
 
-    points = [item[2] for item in entries]
+    by_date_label: dict[str, BtcPricePoint] = {}
+    for _, _, point in entries:
+        by_date_label[point.date_label] = point
+    points = list(by_date_label.values())
     if len(points) > limit:
         points = points[-limit:]
     return points
@@ -994,7 +997,10 @@ def read_btc_price_points_from_live_prices(
             )
         )
 
-    points = [item[2] for item in entries]
+    by_date_label: dict[str, BtcPricePoint] = {}
+    for _, _, point in entries:
+        by_date_label[point.date_label] = point
+    points = list(by_date_label.values())
     if len(points) > limit:
         points = points[-limit:]
     return points

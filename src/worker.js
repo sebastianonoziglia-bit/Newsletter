@@ -562,7 +562,11 @@ function readBtcPricePoints(rows, limit = 60) {
     });
   }
 
-  const ordered = points.map((item) => item.point);
+  const byDateLabel = new Map();
+  points.forEach((item) => {
+    byDateLabel.set(item.point.date_label, item.point);
+  });
+  const ordered = Array.from(byDateLabel.values());
   return ordered.slice(-limit);
 }
 
@@ -610,7 +614,11 @@ function readBtcPricePointsFromLivePrices(rows, limit = 60) {
     });
   }
 
-  const ordered = points.map((item) => item.point);
+  const byDateLabel = new Map();
+  points.forEach((item) => {
+    byDateLabel.set(item.point.date_label, item.point);
+  });
+  const ordered = Array.from(byDateLabel.values());
   return ordered.slice(-limit);
 }
 
