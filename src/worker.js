@@ -476,7 +476,7 @@ function parseDateValue(value) {
   if (!Number.isNaN(direct.getTime())) {
     return direct;
   }
-  const mdy = clean.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/);
+  const mdy = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (mdy) {
     const month = Number(mdy[1]) - 1;
     const day = Number(mdy[2]);
@@ -504,7 +504,7 @@ function renderDateLabel(value) {
 }
 
 function cleanEntityLabel(value, maxChars = 18) {
-  const cleaned = normalizeText(value).replace(/\\s*\\(.*?\\)/g, "");
+  const cleaned = normalizeText(value).replace(/\s*\(.*?\)/g, "");
   if (cleaned.length <= maxChars) {
     return cleaned;
   }
