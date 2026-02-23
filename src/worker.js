@@ -109,7 +109,7 @@ export default {
         await Promise.all([
           fetchGoogleTabRows(sheetId, metaTab, true),
           fetchGoogleTabRows(sheetId, pointsTab, true),
-          fetchGoogleTabRows(sheetId, livePricesTab, false),
+          fetchGoogleLiveBtcRows(sheetId, livePricesTab, false),
           fetchGoogleTabRows(sheetId, btcPriceTab, false),
           fetchGoogleTabRows(sheetId, treasuriesTab, false),
           fetchGoogleTabRows(sheetId, circulatingTab, false),
@@ -251,7 +251,19 @@ async function fetchGoogleTabRows(sheetId, tabName, required) {
   const url =
     `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?` +
     `tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  return fetchGoogleCsvRows(url, tabName, required);
+}
 
+async function fetchGoogleLiveBtcRows(sheetId, tabName, required) {
+  const query =
+    "select * where upper(J) contains 'BTC' or upper(J) contains 'BITCOIN' or upper(J) contains 'XBT' order by A desc limit 400";
+  const url =
+    `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?` +
+    `tqx=out:csv&sheet=${encodeURIComponent(tabName)}&tq=${encodeURIComponent(query)}`;
+  return fetchGoogleCsvRows(url, tabName, required);
+}
+
+async function fetchGoogleCsvRows(url, tabName, required) {
   const response = await fetch(url, {
     headers: { "accept": "text/csv,text/plain;q=0.9,*/*;q=0.1" },
     cf: { cacheEverything: false },
