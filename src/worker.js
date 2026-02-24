@@ -1039,6 +1039,8 @@ function renderHtml(
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { width: 100%; overflow-x: hidden; }
       body {
         margin: 0;
         padding: 0;
@@ -1089,6 +1091,7 @@ function renderHtml(
       .section ul { margin: 20px 0 20px 18px; padding: 0; font-size: 14px; line-height: 1.6; }
       .section li { margin-bottom: 8px; }
       .section .point-source { margin-top: 14px; font-size: 11px; line-height: 1.5; color: #8a8a8a; }
+      .section p, .section li, .intro-preface p, .intro-text { overflow-wrap: anywhere; word-break: break-word; }
       .image { margin: 20px 0; }
       .image img { width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
@@ -1190,13 +1193,15 @@ function renderHtml(
         .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
       }
       @media (max-width: 600px) {
-        body, td, p, li, div {
-          font-size: 16px !important;
-          line-height: 1.6 !important;
-        }
+        .toolbar, .container { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+        .wrapper { padding: 0 !important; }
+        body, p, li, div { font-size: 15px !important; line-height: 1.65 !important; }
+        td { font-size: 15px !important; line-height: 1.65 !important; }
         h1 { font-size: 24px !important; }
         h2 { font-size: 20px !important; }
         h3 { font-size: 18px !important; }
+        .container { border: 0 !important; border-radius: 0 !important; }
+        .toolbar { padding: 8px 12px 6px !important; }
       }
       @media print {
         .no-print { display: none !important; }
