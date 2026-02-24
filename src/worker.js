@@ -1040,7 +1040,7 @@ function renderHtml(
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
       *, *::before, *::after { box-sizing: border-box; }
-      html, body { width: 100%; overflow-x: hidden; }
+      html, body { width: 100%; max-width: 100%; overflow-x: auto; }
       body {
         margin: 0;
         padding: 0;
@@ -1052,6 +1052,9 @@ function renderHtml(
         print-color-adjust: exact;
       }
       table { border-collapse: collapse; }
+      table.wrapper, table.container { width: 100% !important; max-width: 100% !important; table-layout: fixed; }
+      table.wrapper > tbody > tr > td,
+      table.container > tbody > tr > td { width: 100% !important; min-width: 0; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
       .toolbar { width: 100%; max-width: 680px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
@@ -1117,15 +1120,15 @@ function renderHtml(
       .snapshot-legend-item { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:.84em; color:#e6e6e6; }
       .snapshot-legend-left { display:inline-flex; align-items:center; gap:8px; }
       .snapshot-legend-dot { width:10px; height:10px; border-radius:999px; flex:0 0 10px; }
-      .snapshot-legend-name { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#e6e6e6; }
-      .snapshot-legend-value { color:#9a9a9a; white-space:nowrap; font-variant-numeric:tabular-nums; }
+      .snapshot-legend-name { overflow:hidden; white-space:normal; text-overflow:clip; overflow-wrap:anywhere; color:#e6e6e6; }
+      .snapshot-legend-value { color:#9a9a9a; white-space:normal; text-align:right; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
       .snapshot-circ-value { font-size:1.55em; color:#fff; font-weight:500; margin-bottom:10px; font-variant-numeric:tabular-nums; }
       .snapshot-circ-bar { width:100%; height:18px; border-radius:999px; background:#1a1a1a; overflow:hidden; border:1px solid #2a2a2a; }
       .snapshot-circ-fill { height:100%; background:linear-gradient(90deg,#ff4202 0%,#ff8f60 100%); width:0%; }
       .snapshot-circ-note { margin-top:8px; color:#9a9a9a; font-size:.84em; }
       .liq-bar-wrap { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
       .liq-row { display:grid; grid-template-columns:minmax(0,80px) 1fr 1fr minmax(0,60px); gap:8px; align-items:center; font-size:.82em; color:#e6e6e6; }
-      .liq-label { color:#9a9a9a; white-space:nowrap; }
+      .liq-label { color:#9a9a9a; white-space:normal; overflow-wrap:anywhere; }
       .liq-bar-track { background:#1f1f1f; border-radius:4px; height:10px; overflow:hidden; position:relative; }
       .liq-bar-longs { height:100%; background:#ff4202; border-radius:4px; }
       .liq-bar-shorts { height:100%; background:#6699ff; border-radius:4px; }
@@ -1140,14 +1143,14 @@ function renderHtml(
       .snapshot-treas-logo { width:20px; height:20px; object-fit:contain; }
       .snapshot-treas-logo-fallback { width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#ffcfb8; letter-spacing:.3px; text-transform:uppercase; }
       .snapshot-treas-label { font-size:.78em; color:#e6e6e6; text-align:center; line-height:1.25; min-height:32px; max-height:32px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-      .snapshot-treas-value { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:.8em; min-height:18px; }
+      .snapshot-treas-value { color:#ff8f60; white-space:normal; text-align:center; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; font-size:.8em; min-height:18px; }
       .snapshot-treas-group { color:#888; font-size:.7em; text-align:center; min-height:28px; max-height:28px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
       .snapshot-treas-table-wrap { margin-top:12px; border:1px solid #2a2a2a; border-radius:10px; overflow:hidden; }
       .snapshot-treas-table { width:100%; border-collapse:collapse; font-size:.78em; }
-      .snapshot-treas-table th { text-align:left; padding:8px 10px; color:#9f9f9f; font-weight:500; border-bottom:1px solid #2a2a2a; background:#121212; white-space:nowrap; }
+      .snapshot-treas-table th { text-align:left; padding:8px 10px; color:#9f9f9f; font-weight:500; border-bottom:1px solid #2a2a2a; background:#121212; white-space:normal; overflow-wrap:anywhere; }
       .snapshot-treas-table td { padding:7px 10px; border-bottom:1px solid #202020; color:#e6e6e6; vertical-align:middle; }
       .snapshot-treas-table tr:last-child td { border-bottom:none; }
-      .snapshot-treas-cell-name { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .snapshot-treas-cell-name { max-width:none; overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }
       .snapshot-treas-cell-num { text-align:right; color:#ffcfb8; white-space:nowrap; font-variant-numeric:tabular-nums; }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
@@ -1186,12 +1189,64 @@ function renderHtml(
         .intro-num { width: 34px; height: 34px; font-size: 13px; border-radius: 10px; }
         .intro-text { font-size: 15px !important; line-height: 1.7 !important; }
         .snapshot-treas-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .snapshot-treas-table { min-width: 560px; }
+        .snapshot-treas-table { min-width: 0; width: 100%; table-layout: fixed; }
+        .snapshot-treas-table th, .snapshot-treas-table td { white-space: normal !important; overflow-wrap: anywhere; }
+        .liq-row { grid-template-columns:minmax(0,64px) 1fr 1fr minmax(0,52px); }
+        .market, .snapshot-section, .snapshot-card, .liq-bar-wrap, .snapshot-treas-table-wrap { width: 100%; max-width: 100%; box-sizing: border-box; }
+        .market, .snapshot-card, .snapshot-treas-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .snapshot-card p,
+        .snapshot-card span,
+        .snapshot-card td,
+        .snapshot-card th,
+        .liq-row span,
+        .liq-label,
+        .liq-total,
+        .snapshot-treas-cell-name,
+        .snapshot-treas-cell-num {
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
+          word-break: break-word !important;
+        }
+        .snapshot-treas-item { min-width: 84px; }
         .hero-content { padding: 20px; }
         .hero-title { font-size: 22px; }
         .footer-legal { padding: 14px 20px 10px; }
         .footer-dark { padding: 18px 20px; }
         .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
+      }
+      @media (max-width: 932px) and (orientation: landscape) {
+        html, body { width: 100% !important; max-width: 100% !important; overflow-x: hidden !important; }
+        .toolbar, .container { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+        .toolbar { padding-left: 12px !important; padding-right: 12px !important; }
+        .wrapper { padding: 0 !important; }
+        .container { border-radius: 0 !important; border-left: 0; border-right: 0; }
+        .section, .intro-wrap, .footer-legal, .footer-dark { padding-left: 14px !important; padding-right: 14px !important; }
+        .hero { min-height: 210px; }
+        .hero-content { padding: 14px !important; }
+        .hero-title { font-size: 22px !important; }
+        .intro-content { max-width: 100% !important; padding: 14px !important; }
+        .market, .snapshot-section, .snapshot-card, .snapshot-treas-table-wrap, .liq-bar-wrap {
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .market-price-svg, .image img, .extra-images img {
+          width: 100% !important;
+          max-width: 100% !important;
+          height: auto !important;
+        }
+        .section p, .section li, .intro-text, .intro-preface p,
+        .snapshot-card p, .snapshot-card td, .snapshot-card th, .snapshot-card span, .liq-row span {
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
+          word-break: break-word !important;
+        }
+        .liq-row { grid-template-columns:minmax(0,56px) 1fr 1fr minmax(0,44px); gap:6px; }
+        .snapshot-treas-bars { gap: 10px; }
+        .snapshot-treas-item { flex: 1 0 78px; min-width: 78px; max-width: 112px; }
+        .snapshot-treas-table { min-width: 0; width: 100%; table-layout: fixed; }
       }
       @media print {
         .no-print { display: none !important; }
