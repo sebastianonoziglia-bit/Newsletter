@@ -95,6 +95,8 @@ export default {
         normalizeText(env.GOOGLE_LIQUIDATIONS_TAB) || "Liquidations";
       const ownershipTab =
         normalizeText(env.GOOGLE_OWNERSHIP_TAB) || "Distribution";
+      const graphSettingsTab =
+        normalizeText(env.GOOGLE_GRAPH_SETTINGS_TAB) || "graph_settings";
 
       const [
         metaRows,
@@ -105,6 +107,7 @@ export default {
         circulatingRows,
         liquidationsRows,
         ownershipRows,
+        graphSettingsRows,
       ] =
         await Promise.all([
           fetchGoogleTabRows(sheetId, metaTab, true),
@@ -115,10 +118,22 @@ export default {
           fetchGoogleTabRows(sheetId, circulatingTab, false),
           fetchGoogleTabRows(sheetId, liquidationsTab, false),
           fetchGoogleTabRows(sheetId, ownershipTab, false),
+          fetchGoogleTabRows(sheetId, graphSettingsTab, false),
         ]);
 
       const meta = readMeta(metaRows);
       const points = readPoints(pointsRows);
+      const graphSettingsMap = graphSettingsRows.length
+        ? safeOptionalParse(graphSettingsTab, () => readGraphSettingsMap(graphSettingsRows), {})
+        : {};
+      const treasuriesTopN = toPositiveInt(
+        graphSettingsMap.treasuries && graphSettingsMap.treasuries.top_n,
+        6
+      );
+      const liquidationsTopN = toPositiveInt(
+        graphSettingsMap.liquidations && graphSettingsMap.liquidations.top_n,
+        6
+      );
       const liveBtc = livePriceRows.length
         ? safeOptionalParse(livePricesTab, () => readLiveBtcPrice(livePriceRows), null)
         : null;
@@ -133,13 +148,21 @@ export default {
         );
       }
       const treasuryBars = treasuriesRows.length
-        ? safeOptionalParse(treasuriesTab, () => readTreasuryBars(treasuriesRows), [])
+        ? safeOptionalParse(
+            treasuriesTab,
+            () => readTreasuryBars(treasuriesRows, treasuriesTopN),
+            []
+          )
         : [];
       let circulatingMetric = circulatingRows.length
         ? safeOptionalParse(circulatingTab, () => readCirculatingMetric(circulatingRows), null)
         : null;
       const liquidationBars = liquidationsRows.length
-        ? safeOptionalParse(liquidationsTab, () => readLiquidationBars(liquidationsRows), [])
+        ? safeOptionalParse(
+            liquidationsTab,
+            () => readLiquidationBars(liquidationsRows, liquidationsTopN),
+            []
+          )
         : [];
       const ownershipSegments = ownershipRows.length
         ? safeOptionalParse(ownershipTab, () => readOwnershipSegments(ownershipRows), [])
@@ -165,6 +188,7 @@ export default {
         circulatingMetric,
         liquidationBars,
         ownershipSegments,
+        graphSettingsMap,
         liveBtc,
         {
         useR2Images: Boolean(env.IMAGES),
@@ -380,6 +404,62 @@ function readMeta(rows) {
     }
   }
   return meta;
+}
+
+function normalizeGraphKey(value) {
+  const key = normalizeText(value).toLowerCase().replace(/-/g, "_").replace(/\s+/g, "_");
+  const aliases = {
+    btc: "btc_price",
+    btcprice: "btc_price",
+    btc_price: "btc_price",
+    price: "btc_price",
+    liquidation: "liquidations",
+    liquidations: "liquidations",
+    treasury: "treasuries",
+    treasuries: "treasuries",
+    circulating: "circulating_btc",
+    circulating_btc: "circulating_btc",
+    circulatingbtc: "circulating_btc",
+    ownership: "ownership",
+    distribution: "ownership",
+  };
+  return aliases[key] || key;
+}
+
+function readGraphSettingsMap(rows) {
+  if (!rows.length) {
+    return {};
+  }
+  const mapping = headerIndexMap(rows, []);
+  const keyIdx =
+    "graph_key" in mapping ? mapping.graph_key : ("key" in mapping ? mapping.key : -1);
+  if (keyIdx < 0) {
+    return {};
+  }
+
+  const result = {};
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    const graphKey = normalizeGraphKey(row[keyIdx]);
+    if (!graphKey) {
+      continue;
+    }
+    const showRaw = "show" in mapping ? row[mapping.show] : "yes";
+    const show = isRowVisible(showRaw);
+    const title = "title" in mapping ? normalizeText(row[mapping.title]) : "";
+    const topN =
+      "top_n" in mapping
+        ? toPositiveInt(row[mapping.top_n], null)
+        : ("topn" in mapping ? toPositiveInt(row[mapping.topn], null) : null);
+    const comment = "comment" in mapping ? normalizeText(row[mapping.comment]) : "";
+    result[graphKey] = {
+      show,
+      title,
+      top_n: topN,
+      comment,
+    };
+  }
+  return result;
 }
 
 function headerIndexMap(rows, required) {
@@ -640,10 +720,15 @@ function readTreasuryBars(rows, limit = 6) {
   }
   const mapping = headerIndexMap(rows, ["entity", "btc"]);
   const rowTypeIdx = "row_type" in mapping ? mapping.row_type : -1;
+  const holderGroupIdx = "holder_group" in mapping ? mapping.holder_group : -1;
+  const showIdx = "show" in mapping ? mapping.show : -1;
   const bars = [];
 
   for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i];
+    if (showIdx >= 0 && !isRowVisible(row[showIdx])) {
+      continue;
+    }
     const rowType = rowTypeIdx >= 0 ? normalizeText(row[rowTypeIdx]).toLowerCase() : "";
     if (rowType && rowType !== "entity") {
       continue;
@@ -653,7 +738,12 @@ function readTreasuryBars(rows, limit = 6) {
     if (!entity || btc <= 0) {
       continue;
     }
-    bars.push({ entity, btc });
+    bars.push({
+      entity,
+      btc,
+      holder_group: holderGroupIdx >= 0 ? normalizeText(row[holderGroupIdx]) : "",
+      show: showIdx >= 0 ? normalizeText(row[showIdx]) : "yes",
+    });
   }
 
   bars.sort((a, b) => b.btc - a.btc);
@@ -667,10 +757,14 @@ function readCirculatingMetric(rows) {
   const mapping = headerIndexMap(rows, ["circulating_supply_btc", "max_supply_btc"]);
   const asOfIdx = "as_of_date" in mapping ? mapping.as_of_date : -1;
   const noteIdx = "note" in mapping ? mapping.note : -1;
+  const showIdx = "show" in mapping ? mapping.show : -1;
   const candidates = [];
 
   for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i];
+    if (showIdx >= 0 && !isRowVisible(row[showIdx])) {
+      continue;
+    }
     const circulating = parseNumber(row[mapping.circulating_supply_btc], 0);
     let maxSupply = parseNumber(row[mapping.max_supply_btc], 21_000_000);
     if (maxSupply <= 0) {
@@ -716,11 +810,15 @@ function readLiquidationBars(rows, limit = 6) {
   const periodTypeIdx = "period_type" in mapping ? mapping.period_type : -1;
   const periodKeyIdx = "period_key" in mapping ? mapping.period_key : -1;
   const totalIdx = "total" in mapping ? mapping.total : -1;
+  const showIdx = "show" in mapping ? mapping.show : -1;
 
   const collect = (monthlyOnly) => {
     const bars = [];
     for (let i = 1; i < rows.length; i += 1) {
       const row = rows[i];
+      if (showIdx >= 0 && !isRowVisible(row[showIdx])) {
+        continue;
+      }
       const periodType = periodTypeIdx >= 0 ? normalizeText(row[periodTypeIdx]).toLowerCase() : "";
       if (monthlyOnly && periodType && periodType !== "monthly") {
         continue;
@@ -735,7 +833,13 @@ function readLiquidationBars(rows, limit = 6) {
       if (!label || total <= 0) {
         continue;
       }
-      bars.push({ label, longs, shorts, total });
+      bars.push({
+        label,
+        longs,
+        shorts,
+        total,
+        show: showIdx >= 0 ? normalizeText(row[showIdx]) : "yes",
+      });
     }
     return bars;
   };
@@ -752,14 +856,18 @@ function readOwnershipSegments(rows) {
   const mapping = headerIndexMap(rows, ["category", "amount_btc"]);
   const colorIdx = "color" in mapping ? mapping.color : -1;
   const percentIdx = "percent" in mapping ? mapping.percent : -1;
+  const showIdx = "show" in mapping ? mapping.show : -1;
   const segments = [];
 
   for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i];
+    if (showIdx >= 0 && !isRowVisible(row[showIdx])) {
+      continue;
+    }
     const category = normalizeText(row[mapping.category]);
     const amount = Math.max(0, parseNumber(row[mapping.amount_btc], 0));
     const percent = percentIdx >= 0 ? Math.max(0, parseNumber(row[percentIdx], 0)) : 0;
-    const color = colorIdx >= 0 ? normalizeText(row[colorIdx]) : "";
+    const color = colorIdx >= 0 ? safeColor(row[colorIdx]) : "";
     if (!category && amount <= 0) {
       continue;
     }
@@ -771,6 +879,7 @@ function readOwnershipSegments(rows) {
       amount_btc: amount,
       percent,
       color: color || "rgb(255, 66, 2)",
+      show: showIdx >= 0 ? normalizeText(row[showIdx]) : "yes",
     });
   }
 
@@ -804,6 +913,7 @@ function renderHtml(
   circulatingMetric,
   liquidationBars,
   ownershipSegments,
+  graphSettingsMap,
   liveBtc,
   imageOptions
 ) {
@@ -830,11 +940,11 @@ function renderHtml(
     .join("");
   const marketHtml = renderMarketSection(
     meta,
-    btcPricePoints,
     treasuryBars,
     circulatingMetric,
     liquidationBars,
     ownershipSegments,
+    graphSettingsMap,
     liveBtc
   );
 
@@ -887,42 +997,48 @@ function renderHtml(
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
       .extra-images { margin: 14px 0 0; display: grid; gap: 10px; }
       .extra-images img { width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }
-      .market { background: #070707; color: #f4f4f4; border-top: 1px solid #171717; }
-      .market h2 { color: #ffffff; margin-bottom: 8px; }
-      .market-intro { margin: 0 0 12px; color: #b8b8b8; font-size: 13px; }
+      .market { background: #0f0f0f; color: #f4f4f4; border-top: 1px solid #171717; }
       .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
       .market-live strong { color: #ffffff; }
       .market-live span { color: #ffcfb8; }
-      .market-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-      .market-card { border: 1px solid #1e1e1e; border-radius: 12px; padding: 16px; background: #101010; }
-      .market-card h3 { margin: 0 0 12px; color: #ffffff; font-size: 18px; font-weight: 700; }
-      .market-price-svg { width: 100%; height: auto; display: block; }
-      .market-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 12px; align-items: end; min-height: 220px; }
-      .market-bar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-      .market-bar-track { width: 100%; max-width: 92px; height: 170px; border-radius: 8px; border: 1px solid #2a2a2a; background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-      .market-bar-fill { width: 100%; background: linear-gradient(180deg, #ff8b61 0%, #ff4202 100%); }
-      .market-liq-track { justify-content: flex-end; }
-      .market-liq-short { width: 100%; background: #8f3a1d; }
-      .market-liq-long { width: 100%; background: #ff4202; }
-      .market-bar-label { margin: 0; font-size: 11px; color: #d0d0d0; text-align: center; line-height: 1.3; }
-      .market-bar-value { margin: 0; font-size: 11px; color: #ffcfb8; }
-      .market-legend { display: flex; gap: 14px; margin: 0 0 8px; font-size: 11px; color: #bcbcbc; }
-      .market-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-      .market-legend .dot-long { background: #ff4202; }
-      .market-legend .dot-short { background: #8f3a1d; }
-      .market-circ-card .market-circ-value { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #ffffff; }
-      .market-progress-track { width: 100%; height: 14px; border: 1px solid #2a2a2a; border-radius: 999px; background: #0c0c0c; overflow: hidden; }
-      .market-progress-fill { height: 100%; background: linear-gradient(90deg, #ff4202 0%, #ff8b61 100%); }
-      .market-own-bar { width: 100%; height: 18px; border: 1px solid #2a2a2a; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 10px; }
-      .market-own-segment { height: 100%; min-width: 2px; }
-      .market-own-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
-      .market-own-item { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 6px; }
-      .market-own-dot { width: 8px; height: 8px; border-radius: 999px; }
-      .market-own-name { font-size: 12px; color: #d0d0d0; }
-      .market-own-value { font-size: 12px; color: #ffcfb8; }
-      .market-subnote { margin: 8px 0 0; font-size: 12px; color: #b9b9b9; }
-      .market-note { margin: 8px 0 0; font-size: 11px; color: #8e8e8e; }
-      .market-empty { margin: 0; color: #9a9a9a; font-size: 12px; }
+      /* Snapshot / bottom graphs */
+      .snapshot-section { width:100%; margin-top:28px; padding-top:18px; border-top:1px solid #242424; }
+      .snapshot-title { font-size:1.08em; font-weight:500; color:#fff; margin-bottom:14px; letter-spacing:.01em; }
+      .snapshot-grid { display:grid; gap:14px; grid-template-columns:1fr; }
+      .snapshot-card { border:1px solid #232323; border-radius:12px; background:#141414; padding:14px; }
+      .snapshot-card h3 { font-size:.95em; font-weight:500; color:#fff; margin-bottom:10px; }
+      .snapshot-caption { margin-top:8px; color:#9a9a9a; font-size:.84em; }
+      .snapshot-empty { margin: 0; color: #9a9a9a; font-size: .84em; }
+      .snapshot-distribution-bar { width:100%; height:26px; display:flex; border-radius:8px; overflow:hidden; border:1px solid #2a2a2a; background:#1a1a1a; }
+      .snapshot-distribution-segment { height:100%; min-width:2px; border-right:1px solid rgba(255,255,255,.15); }
+      .snapshot-distribution-segment:last-child { border-right:none; }
+      .snapshot-legend { margin-top:10px; display:grid; grid-template-columns:1fr; gap:6px; }
+      .snapshot-legend-item { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:.84em; color:#e6e6e6; }
+      .snapshot-legend-left { display:inline-flex; align-items:center; gap:8px; }
+      .snapshot-legend-dot { width:10px; height:10px; border-radius:999px; flex:0 0 10px; }
+      .snapshot-legend-name { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#e6e6e6; }
+      .snapshot-legend-value { color:#9a9a9a; white-space:nowrap; font-variant-numeric:tabular-nums; }
+      .snapshot-circ-value { font-size:1.55em; color:#fff; font-weight:500; margin-bottom:10px; font-variant-numeric:tabular-nums; }
+      .snapshot-circ-bar { width:100%; height:18px; border-radius:999px; background:#1a1a1a; overflow:hidden; border:1px solid #2a2a2a; }
+      .snapshot-circ-fill { height:100%; background:linear-gradient(90deg,#ff4202 0%,#ff8f60 100%); width:0%; }
+      .snapshot-circ-note { margin-top:8px; color:#9a9a9a; font-size:.84em; }
+      .liq-bar-wrap { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+      .liq-row { display:grid; grid-template-columns:80px 1fr 1fr 60px; gap:8px; align-items:center; font-size:.82em; color:#e6e6e6; }
+      .liq-label { color:#9a9a9a; white-space:nowrap; }
+      .liq-bar-track { background:#1f1f1f; border-radius:4px; height:10px; overflow:hidden; position:relative; }
+      .liq-bar-longs { height:100%; background:#ff4202; border-radius:4px; }
+      .liq-bar-shorts { height:100%; background:#6699ff; border-radius:4px; }
+      .liq-total { text-align:right; color:#9a9a9a; }
+      .liq-legend { display:flex; gap:14px; margin-bottom:8px; font-size:.82em; }
+      .liq-dot { width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:4px; }
+      .treas-row { display:grid; grid-template-columns:28px 1fr auto; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid #1f1f1f; font-size:.84em; }
+      .treas-row:last-child { border-bottom:none; }
+      .treas-rank { color:#555; font-size:.78em; font-variant-numeric:tabular-nums; }
+      .treas-name { color:#e6e6e6; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+      .treas-btc { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; }
+      .treas-group-badge { display:inline-block; font-size:.7em; padding:1px 6px; border-radius:4px; background:#1f1f1f; color:#888; margin-left:6px; }
+      @media(min-width:900px){ .snapshot-grid { grid-template-columns:1fr 1fr; } }
+      @media(min-width:1400px){ .snapshot-grid { grid-template-columns:1fr 1fr 1fr; } }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
       .footer { padding: 0; font-size: 12px; color: #7a7a7a; }
@@ -944,8 +1060,6 @@ function renderHtml(
         .section { padding: 18px 20px; }
         .hero-content { padding: 20px; }
         .hero-title { font-size: 22px; }
-        .market-grid { grid-template-columns: 1fr; }
-        .market-own-legend { grid-template-columns: 1fr; }
         .footer-legal { padding: 14px 20px 10px; }
         .footer-dark { padding: 18px 20px; }
         .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
@@ -1294,66 +1408,194 @@ function renderOwnershipCard(ownershipSegments, maxItems = 8) {
 
 function renderMarketSection(
   meta,
-  btcPricePoints,
   treasuryBars,
   circulatingMetric,
   liquidationBars,
   ownershipSegments,
+  graphSettingsMap,
   liveBtc
 ) {
-  if (
-    !btcPricePoints.length &&
-    !treasuryBars.length &&
-    !circulatingMetric &&
-    !liquidationBars.length &&
-    !ownershipSegments.length
-  ) {
+  const snapshotHtml = renderSnapshotSection({
+    distribution: ownershipSegments,
+    circulating: circulatingMetric,
+    liquidations: liquidationBars,
+    treasuries: treasuryBars,
+    settings: graphSettingsMap || {},
+    title: normalizeText(meta.snapshot_title) || "Bitcoin Data",
+  });
+  if (!snapshotHtml) {
     return "";
   }
-
-  const sectionTitle =
-    normalizeText(meta.market_section_title) || "Bitcoin Market Dashboard";
-  const sectionIntro =
-    normalizeText(meta.market_section_intro) ||
-    "Auto-rendered from live_prices/BTC Price, Liquidations, Treasuries, Circulating BTC, and Distribution tabs.";
-
   const liveChip = liveBtc
     ? `<p class="market-live">Live BTC: <strong>${escapeHtml(formatUsd(liveBtc.price))}</strong>${
         liveBtc.date ? ` <span>(${escapeHtml(liveBtc.date)})</span>` : ""
       }</p>`
     : "";
-
   return `
             <tr>
               <td class="section market">
-                <h2>${escapeHtml(sectionTitle)}</h2>
-                <p class="market-intro">${escapeHtml(sectionIntro)}</p>
                 ${liveChip}
-                <div class="market-grid">
-                  <div class="market-card market-price-card">
-                    <h3>BTC Price</h3>
-                    ${buildBtcPriceChartSvg(btcPricePoints)}
-                  </div>
-                  <div class="market-card">
-                    <h3>Liquidations</h3>
-                    ${renderLiquidationsBars(liquidationBars)}
-                  </div>
-                  <div class="market-card">
-                    <h3>Treasuries (Top Holders)</h3>
-                    ${renderTreasuryBars(treasuryBars)}
-                  </div>
-                  <div class="market-card market-circ-card">
-                    <h3>Circulating BTC</h3>
-                    ${renderCirculatingCard(circulatingMetric)}
-                  </div>
-                  <div class="market-card market-own-card">
-                    <h3>Supply Ownership</h3>
-                    ${renderOwnershipCard(ownershipSegments)}
-                  </div>
-                </div>
+                ${snapshotHtml}
               </td>
             </tr>
 `;
+}
+
+function renderSnapshotSection(data) {
+  const cards = [];
+  const settings = data.settings || {};
+
+  const ownershipSetting = {
+    show: !settings.ownership || settings.ownership.show !== false,
+    title:
+      (settings.ownership && normalizeText(settings.ownership.title)) || "Supply Ownership",
+    top_n: toPositiveInt(settings.ownership && settings.ownership.top_n, 8),
+  };
+  const circulatingSetting = {
+    show: !settings.circulating_btc || settings.circulating_btc.show !== false,
+    title:
+      (settings.circulating_btc && normalizeText(settings.circulating_btc.title)) ||
+      "Circulating BTC",
+  };
+  const liquidationsSetting = {
+    show: !settings.liquidations || settings.liquidations.show !== false,
+    title:
+      (settings.liquidations && normalizeText(settings.liquidations.title)) || "Liquidations",
+    top_n: toPositiveInt(settings.liquidations && settings.liquidations.top_n, 6),
+  };
+  const treasuriesSetting = {
+    show: !settings.treasuries || settings.treasuries.show !== false,
+    title: (settings.treasuries && normalizeText(settings.treasuries.title)) || "Treasuries",
+    top_n: toPositiveInt(settings.treasuries && settings.treasuries.top_n, 6),
+  };
+
+  if (ownershipSetting.show && data.distribution && data.distribution.length) {
+    const segments = data.distribution
+      .filter((row) => isRowVisible(row.show))
+      .slice(0, ownershipSetting.top_n || 8);
+    const total = segments.reduce((sum, row) => sum + Number(row.amount_btc || 0), 0);
+    const bar = segments
+      .map((row) => {
+        const pct =
+          row.percent && row.percent > 0
+            ? Number(row.percent)
+            : total > 0
+              ? (Number(row.amount_btc || 0) / total) * 100
+              : 0;
+        return `<div class="snapshot-distribution-segment" style="width:${pct.toFixed(4)}%;background:${escapeHtml(safeColor(row.color), true)}" title="${escapeHtml(`${row.category || ""}: ${pct.toFixed(1)}%`, true)}"></div>`;
+      })
+      .join("");
+    const legend = segments
+      .map((row) => {
+        const pct =
+          row.percent && row.percent > 0
+            ? Number(row.percent)
+            : total > 0
+              ? (Number(row.amount_btc || 0) / total) * 100
+              : 0;
+        const btc = Number(row.amount_btc || 0);
+        const btcFmt = btc >= 1e6 ? `${(btc / 1e6).toFixed(2)}M` : btc >= 1e3 ? `${(btc / 1e3).toFixed(0)}K` : btc.toFixed(0);
+        return `<div class="snapshot-legend-item">
+        <span class="snapshot-legend-left">
+          <span class="snapshot-legend-dot" style="background:${escapeHtml(safeColor(row.color), true)}"></span>
+          <span class="snapshot-legend-name">${escapeHtml(row.category || "")}</span>
+        </span>
+        <span class="snapshot-legend-value">${escapeHtml(btcFmt)} BTC (${escapeHtml(pct.toFixed(1))}%)</span>
+      </div>`;
+      })
+      .join("");
+    cards.push(`<article class="snapshot-card">
+      <h3>${escapeHtml(ownershipSetting.title)}</h3>
+      <div class="snapshot-distribution-bar">${bar}</div>
+      <div class="snapshot-legend">${legend}</div>
+      <p class="snapshot-caption">Largest holders shown first from left to right.</p>
+    </article>`);
+  }
+
+  if (circulatingSetting.show && data.circulating) {
+    const c = data.circulating;
+    const circ = Number(c.circulating_supply_btc || 0);
+    const max = Number(c.max_supply_btc || 21000000);
+    const pct = max > 0 ? (circ / max) * 100 : 0;
+    const circFmt = Math.round(circ).toLocaleString("en-US");
+    cards.push(`<article class="snapshot-card">
+      <h3>${escapeHtml(circulatingSetting.title)}</h3>
+      <div class="snapshot-circ-value">${escapeHtml(circFmt)} BTC</div>
+      <div class="snapshot-circ-bar"><div class="snapshot-circ-fill" style="width:${pct.toFixed(2)}%"></div></div>
+      <p class="snapshot-circ-note">${escapeHtml(pct.toFixed(2))}% of the 21,000,000 BTC maximum supply has been mined.</p>
+    </article>`);
+  }
+
+  if (liquidationsSetting.show && data.liquidations && data.liquidations.length) {
+    const rows = data.liquidations
+      .filter((row) => isRowVisible(row.show))
+      .slice(-(liquidationsSetting.top_n || 6));
+    const maxTotal = Math.max(
+      ...rows.map((row) => Number(row.total || row.longs || 0) + Number(row.shorts || 0)),
+      0
+    );
+    const rowsHtml = rows
+      .map((row) => {
+        const longs = Number(row.longs || 0);
+        const shorts = Number(row.shorts || 0);
+        const total = Number(row.total || 0) || longs + shorts;
+        const lPct = maxTotal > 0 ? (longs / maxTotal) * 100 : 0;
+        const sPct = maxTotal > 0 ? (shorts / maxTotal) * 100 : 0;
+        const totalLabel = total >= 1 ? `${total.toFixed(1)}B` : `${(total * 1000).toFixed(0)}M`;
+        return `<div class="liq-row">
+        <span class="liq-label">${escapeHtml(row.label || "")}</span>
+        <div class="liq-bar-track"><div class="liq-bar-longs" style="width:${lPct.toFixed(1)}%"></div></div>
+        <div class="liq-bar-track"><div class="liq-bar-shorts" style="width:${sPct.toFixed(1)}%"></div></div>
+        <span class="liq-total">${escapeHtml(totalLabel)}</span>
+      </div>`;
+      })
+      .join("");
+    cards.push(`<article class="snapshot-card">
+      <h3>${escapeHtml(liquidationsSetting.title)}</h3>
+      <div class="liq-legend">
+        <span><span class="liq-dot" style="background:#ff4202"></span>Longs</span>
+        <span><span class="liq-dot" style="background:#6699ff"></span>Shorts</span>
+      </div>
+      <div class="liq-bar-wrap">
+        <div class="liq-row"><span class="liq-label"></span><span style="font-size:.75em;color:#555">LONGS</span><span style="font-size:.75em;color:#555">SHORTS</span><span></span></div>
+        ${rowsHtml}
+      </div>
+    </article>`);
+  }
+
+  if (treasuriesSetting.show && data.treasuries && data.treasuries.length) {
+    const rows = data.treasuries
+      .filter((row) => isRowVisible(row.show))
+      .sort((a, b) => Number(b.btc || 0) - Number(a.btc || 0))
+      .slice(0, treasuriesSetting.top_n || 6);
+    const rowsHtml = rows
+      .map((row, index) => {
+        const btc = Number(row.btc || 0);
+        const btcFmt = btc >= 1e3 ? `${(btc / 1e3).toFixed(1)}K` : btc.toFixed(0);
+        const groupBadge = row.holder_group
+          ? `<span class="treas-group-badge">${escapeHtml(row.holder_group)}</span>`
+          : "";
+        return `<div class="treas-row">
+        <span class="treas-rank">${index + 1}</span>
+        <span class="treas-name">${escapeHtml(row.entity || "")}${groupBadge}</span>
+        <span class="treas-btc">₿ ${escapeHtml(btcFmt)}</span>
+      </div>`;
+      })
+      .join("");
+    cards.push(`<article class="snapshot-card">
+      <h3>${escapeHtml(treasuriesSetting.title)}</h3>
+      ${rowsHtml}
+    </article>`);
+  }
+
+  if (!cards.length) {
+    return "";
+  }
+
+  return `<section class="snapshot-section">
+    <h2 class="snapshot-title">${escapeHtml(data.title || "Bitcoin Data")}</h2>
+    <div class="snapshot-grid">${cards.join("")}</div>
+  </section>`;
 }
 
 function resolveExtraImagePaths(point, meta, imageOptions) {
@@ -1537,6 +1779,33 @@ function renderBlockHeight(value) {
 
 function parseBool(value) {
   return ["1", "true", "yes", "y", "on"].includes(normalizeText(value).toLowerCase());
+}
+
+function isRowVisible(value) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+  return !["0", "false", "no", "n", "off"].includes(normalized);
+}
+
+function toPositiveInt(value, fallback = null) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function safeColor(value, fallback = "#ff4202") {
+  const color = normalizeText(value);
+  if (!color) {
+    return fallback;
+  }
+  if (/^#[0-9a-f]{3,8}$/i.test(color)) return color;
+  if (/^rgb(a)?\(/i.test(color)) return color;
+  if (/^hsl(a)?\(/i.test(color)) return color;
+  return fallback;
 }
 
 function normalizeAssetKey(value) {

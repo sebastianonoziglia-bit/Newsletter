@@ -13,6 +13,7 @@ GOOGLE_TREASURIES_TAB = "Treasuries"
 GOOGLE_CIRCULATING_TAB = "Circulating BTC"
 GOOGLE_LIQUIDATIONS_TAB = "Liquidations"
 GOOGLE_OWNERSHIP_TAB = "Distribution"
+GOOGLE_GRAPH_SETTINGS_TAB = "graph_settings"
 CACHE_TTL_SECONDS = "120"
 
 [assets]
