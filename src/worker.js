@@ -739,6 +739,12 @@ function readTreasuryBars(rows, limit = 6) {
   const mapping = headerIndexMap(rows, ["entity", "btc"]);
   const rowTypeIdx = "row_type" in mapping ? mapping.row_type : -1;
   const holderGroupIdx = "holder_group" in mapping ? mapping.holder_group : -1;
+  const logoIdx =
+    "logo" in mapping
+      ? mapping.logo
+      : ("logo_path" in mapping
+          ? mapping.logo_path
+          : ("icon" in mapping ? mapping.icon : ("image" in mapping ? mapping.image : -1)));
   const showIdx = "show" in mapping ? mapping.show : -1;
   const bars = [];
 
@@ -760,6 +766,7 @@ function readTreasuryBars(rows, limit = 6) {
       entity,
       btc,
       holder_group: holderGroupIdx >= 0 ? normalizeText(row[holderGroupIdx]) : "",
+      logo: logoIdx >= 0 ? normalizeText(row[logoIdx]) : "",
       show: showIdx >= 0 ? normalizeText(row[showIdx]) : "yes",
     });
   }
@@ -949,9 +956,9 @@ function renderHtml(
   const resolvedLogo = resolveLogo(meta);
   const logoUrl = escapeHtml(resolvedLogo, true);
   const footerLogoUrl = escapeHtml(resolveAssetPath(meta.footer_logo_url, "/logotosite.png"), true);
-  const footerInstagramIcon = escapeHtml(resolveAssetPath(meta.footer_instagram_icon, "/instagram.png"), true);
-  const footerXIcon = escapeHtml(resolveAssetPath(meta.footer_x_icon, "/x:twitter.png"), true);
-  const footerLinkedinIcon = escapeHtml(resolveAssetPath(meta.footer_linkedin_icon, "/linkedin.png"), true);
+  const footerInstagramIcon = "/instagram.png";
+  const footerXIcon = "/x:twitter.png";
+  const footerLinkedinIcon = "/linkedin.png";
 
   const pointsHtml = points
     .map((point) => renderPoint(point, meta, imageOptions))
@@ -1049,12 +1056,15 @@ function renderHtml(
       .liq-total { text-align:right; color:#9a9a9a; }
       .liq-legend { display:flex; gap:14px; margin-bottom:8px; font-size:.82em; }
       .liq-dot { width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:4px; }
-      .treas-row { display:grid; grid-template-columns:28px 1fr auto; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid #1f1f1f; font-size:.84em; }
-      .treas-row:last-child { border-bottom:none; }
-      .treas-rank { color:#555; font-size:.78em; font-variant-numeric:tabular-nums; }
-      .treas-name { color:#e6e6e6; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-      .treas-btc { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; text-align:right; }
-      .treas-group-badge { display:inline-block; font-size:.7em; padding:1px 6px; border-radius:4px; background:#1f1f1f; color:#888; margin-left:6px; }
+      .snapshot-treas-bars { display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:10px; align-items:end; }
+      .snapshot-treas-item { display:flex; flex-direction:column; align-items:center; gap:6px; }
+      .snapshot-treas-track { width:100%; max-width:82px; height:130px; border-radius:8px; border:1px solid #2a2a2a; background:#1a1a1a; overflow:hidden; display:flex; align-items:flex-end; }
+      .snapshot-treas-fill { width:100%; background:linear-gradient(180deg,#ff8f60 0%,#ff4202 100%); }
+      .snapshot-treas-logo-wrap { width:26px; height:26px; border-radius:999px; background:#0f0f0f; border:1px solid #2a2a2a; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+      .snapshot-treas-logo { width:20px; height:20px; object-fit:contain; }
+      .snapshot-treas-label { font-size:.78em; color:#e6e6e6; text-align:center; line-height:1.25; min-height:30px; }
+      .snapshot-treas-value { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:.8em; }
+      .snapshot-treas-group { color:#888; font-size:.7em; text-align:center; min-height:14px; }
       @media(min-width:900px){ .snapshot-grid { grid-template-columns:1fr 1fr; } }
       @media(min-width:1400px){ .snapshot-grid { grid-template-columns:1fr 1fr 1fr; } }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
@@ -1069,7 +1079,7 @@ function renderHtml(
       .footer-site-url { display: block; color: #ff4202; font-size: 11px; }
       .footer-socials { display: flex; gap: 8px; }
       .footer-social-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.08); border-radius: 10px; }
-      .footer-social-btn img { width: 18px; height: 18px; filter: brightness(0) invert(1); }
+      .footer-social-btn img { width: 20px; height: 20px; object-fit: contain; }
       .footer-copy { margin: 14px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; }
       @media (max-width: 720px) {
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
@@ -1586,23 +1596,31 @@ function renderSnapshotSection(data) {
       .filter((row) => isRowVisible(row.show))
       .sort((a, b) => Number(b.btc || 0) - Number(a.btc || 0))
       .slice(0, treasuriesSetting.top_n || 6);
+    const maxBtc = Math.max(...rows.map((row) => Number(row.btc || 0)), 1);
     const rowsHtml = rows
-      .map((row, index) => {
+      .map((row) => {
         const btc = Number(row.btc || 0);
         const btcFmt = Math.round(btc).toLocaleString("en-US");
-        const groupBadge = row.holder_group
-          ? `<span class="treas-group-badge">${escapeHtml(row.holder_group)}</span>`
+        const height = maxBtc > 0 ? Math.max(6, (btc / maxBtc) * 100) : 0;
+        const logoSrc = row.logo ? resolveAssetPath(row.logo, "") : entityToLogoPath(row.entity);
+        const logoHtml = logoSrc
+          ? `<span class="snapshot-treas-logo-wrap"><img class="snapshot-treas-logo" src="${escapeHtml(logoSrc, true)}" alt="${escapeHtml(row.entity || "", true)}" onerror="this.closest('.snapshot-treas-logo-wrap').style.display='none'"></span>`
           : "";
-        return `<div class="treas-row">
-        <span class="treas-rank">${index + 1}</span>
-        <span class="treas-name">${escapeHtml(row.entity || "")}${groupBadge}</span>
-        <span class="treas-btc">${escapeHtml(btcFmt)} BTC</span>
+        const groupHtml = row.holder_group
+          ? `<div class="snapshot-treas-group">${escapeHtml(row.holder_group)}</div>`
+          : '<div class="snapshot-treas-group"></div>';
+        return `<div class="snapshot-treas-item">
+        <div class="snapshot-treas-track"><div class="snapshot-treas-fill" style="height:${height.toFixed(2)}%"></div></div>
+        ${logoHtml}
+        <div class="snapshot-treas-label">${escapeHtml(cleanEntityLabel(row.entity || "", 15))}</div>
+        ${groupHtml}
+        <div class="snapshot-treas-value">${escapeHtml(btcFmt)} BTC</div>
       </div>`;
       })
       .join("");
     cards.push(`<article class="snapshot-card">
       <h3>${escapeHtml(treasuriesSetting.title)}</h3>
-      ${rowsHtml}
+      <div class="snapshot-treas-bars">${rowsHtml}</div>
     </article>`);
   }
 
@@ -1824,6 +1842,14 @@ function safeColor(value, fallback = "#ff4202") {
   if (/^rgb(a)?\(/i.test(color)) return color;
   if (/^hsl(a)?\(/i.test(color)) return color;
   return fallback;
+}
+
+function entityToLogoPath(entity) {
+  const slug = normalizeText(entity).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!slug) {
+    return "";
+  }
+  return `/${slug}.png`;
 }
 
 function normalizeAssetKey(value) {
