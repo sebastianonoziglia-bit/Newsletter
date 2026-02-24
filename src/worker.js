@@ -126,10 +126,7 @@ export default {
       const graphSettingsMap = graphSettingsRows.length
         ? safeOptionalParse(graphSettingsTab, () => readGraphSettingsMap(graphSettingsRows), {})
         : {};
-      const treasuriesTopN = toPositiveInt(
-        graphSettingsMap.treasuries && graphSettingsMap.treasuries.top_n,
-        null
-      );
+      const treasuriesTopN = null;
       const liquidationsTopN = toPositiveInt(
         graphSettingsMap.liquidations && graphSettingsMap.liquidations.top_n,
         6
@@ -451,11 +448,16 @@ function readGraphSettingsMap(rows) {
       "top_n" in mapping
         ? toPositiveInt(row[mapping.top_n], null)
         : ("topn" in mapping ? toPositiveInt(row[mapping.topn], null) : null);
+    const maxBars =
+      "max_bars" in mapping
+        ? toPositiveInt(row[mapping.max_bars], null)
+        : ("maxbars" in mapping ? toPositiveInt(row[mapping.maxbars], null) : null);
     const comment = "comment" in mapping ? normalizeText(row[mapping.comment]) : "";
     result[graphKey] = {
       show,
       title,
       top_n: topN,
+      max_bars: maxBars,
       comment,
     };
   }
@@ -732,7 +734,7 @@ function readBtcPricePointsFromLivePrices(rows, limit = 60) {
   return ordered.slice(-limit);
 }
 
-function readTreasuryBars(rows, limit = 6) {
+function readTreasuryBars(rows, limit = null) {
   if (!rows.length) {
     return [];
   }
@@ -998,11 +1000,11 @@ function renderHtml(
       table { border-collapse: collapse; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
-      .toolbar { width: 100%; max-width: 680px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
+      .toolbar { width: 100%; max-width: 650px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
       .wrapper { width: 100%; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 680px; max-width: 680px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .container { width: 650px; max-width: 650px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }
@@ -1059,17 +1061,15 @@ function renderHtml(
       .liq-total { text-align:right; color:#9a9a9a; }
       .liq-legend { display:flex; gap:14px; margin-bottom:8px; font-size:.82em; }
       .liq-dot { width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:4px; }
-      .snapshot-treas-bars { display:flex; gap:12px; align-items:flex-end; overflow-x:auto; padding-bottom:6px; }
-      .snapshot-treas-item { display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 102px; }
-      .snapshot-treas-track { width:100%; max-width:92px; height:150px; border-radius:8px; border:1px solid #2a2a2a; background:#1a1a1a; overflow:hidden; display:flex; align-items:flex-end; }
+      .snapshot-treas-bars { display:flex; gap:12px; align-items:flex-end; overflow-x:auto; padding:2px 2px 8px; width:100%; max-width:100%; box-sizing:border-box; }
+      .snapshot-treas-item { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1 0 100px; min-width:100px; max-width:140px; }
+      .snapshot-treas-track { width:100%; height:160px; border-radius:8px; border:1px solid #2a2a2a; background:#1a1a1a; overflow:hidden; display:flex; align-items:flex-end; }
       .snapshot-treas-fill { width:100%; background:linear-gradient(180deg,#ff8f60 0%,#ff4202 100%); }
       .snapshot-treas-logo-wrap { width:26px; height:26px; border-radius:999px; background:#0f0f0f; border:1px solid #2a2a2a; display:flex; align-items:center; justify-content:center; overflow:hidden; }
       .snapshot-treas-logo { width:20px; height:20px; object-fit:contain; }
       .snapshot-treas-label { font-size:.78em; color:#e6e6e6; text-align:center; line-height:1.25; min-height:30px; }
       .snapshot-treas-value { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:.8em; }
       .snapshot-treas-group { color:#888; font-size:.7em; text-align:center; min-height:14px; }
-      @media(min-width:900px){ .snapshot-grid { grid-template-columns:1fr 1fr; } }
-      @media(min-width:1400px){ .snapshot-grid { grid-template-columns:1fr 1fr 1fr; } }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
       .footer { padding: 0; font-size: 12px; color: #7a7a7a; }
@@ -1497,7 +1497,7 @@ function renderSnapshotSection(data) {
   const treasuriesSetting = {
     show: !settings.treasuries || settings.treasuries.show !== false,
     title: (settings.treasuries && normalizeText(settings.treasuries.title)) || "Treasuries",
-    top_n: toPositiveInt(settings.treasuries && settings.treasuries.top_n, null),
+    max_bars: toPositiveInt(settings.treasuries && settings.treasuries.max_bars, null),
   };
 
   if (ownershipSetting.show && data.distribution && data.distribution.length) {
@@ -1599,8 +1599,8 @@ function renderSnapshotSection(data) {
       .filter((row) => isRowVisible(row.show))
       .sort((a, b) => Number(b.btc || 0) - Number(a.btc || 0));
     const rows =
-      treasuriesSetting.top_n && treasuriesSetting.top_n > 0
-        ? visibleRows.slice(0, treasuriesSetting.top_n)
+      treasuriesSetting.max_bars && treasuriesSetting.max_bars > 0
+        ? visibleRows.slice(0, treasuriesSetting.max_bars)
         : visibleRows;
     const maxBtc = Math.max(...rows.map((row) => Number(row.btc || 0)), 1);
     const rowsHtml = rows
@@ -1608,9 +1608,11 @@ function renderSnapshotSection(data) {
         const btc = Number(row.btc || 0);
         const btcFmt = Math.round(btc).toLocaleString("en-US");
         const height = maxBtc > 0 ? Math.max(6, (btc / maxBtc) * 100) : 0;
-        const logoSrc = row.logo ? resolveAssetPath(row.logo, "") : entityToLogoPath(row.entity);
+        const logoCandidates = resolveTreasuryLogoCandidates(row);
+        const logoSrc = logoCandidates[0] || "";
+        const logoFallbacks = logoCandidates.slice(1).join("|");
         const logoHtml = logoSrc
-          ? `<span class="snapshot-treas-logo-wrap"><img class="snapshot-treas-logo" src="${escapeHtml(logoSrc, true)}" alt="${escapeHtml(row.entity || "", true)}" onerror="this.closest('.snapshot-treas-logo-wrap').style.display='none'"></span>`
+          ? `<span class="snapshot-treas-logo-wrap"><img class="snapshot-treas-logo" src="${escapeHtml(logoSrc, true)}" data-fallbacks="${escapeHtml(logoFallbacks, true)}" alt="${escapeHtml(row.entity || "", true)}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.closest('.snapshot-treas-logo-wrap').style.display='none';}"></span>`
           : "";
         const groupHtml = row.holder_group
           ? `<div class="snapshot-treas-group">${escapeHtml(row.holder_group)}</div>`
@@ -1850,12 +1852,75 @@ function safeColor(value, fallback = "#ff4202") {
   return fallback;
 }
 
+function normalizeLogoSlug(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function entityToLogoPath(entity) {
-  const slug = normalizeText(entity).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const slug = normalizeLogoSlug(entity);
   if (!slug) {
     return "";
   }
   return `/${slug}.png`;
+}
+
+function resolveTreasuryLogoCandidates(row) {
+  const candidates = [];
+  const seen = new Set();
+
+  const addCandidate = (value) => {
+    const resolved = resolveAssetPath(value, "");
+    if (!resolved) {
+      return;
+    }
+    const key = resolved.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    candidates.push(resolved);
+  };
+
+  const addSlugVariants = (value) => {
+    const slug = normalizeLogoSlug(value);
+    if (!slug) {
+      return;
+    }
+    [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => addCandidate(`/${slug}${ext}`));
+    const parts = slug.split("_").filter(Boolean);
+    if (parts.length > 1) {
+      const shortSlug = parts[0];
+      [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => addCandidate(`/${shortSlug}${ext}`));
+    }
+  };
+
+  const explicit = normalizeText(row && row.logo);
+  if (explicit) {
+    explicit
+      .split(/[|,;]/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .forEach(addCandidate);
+  }
+
+  const entity = normalizeText(row && row.entity);
+  if (entity) {
+    addSlugVariants(entity);
+    const withoutParens = normalizeText(entity.replace(/\(.*?\)/g, " "));
+    if (withoutParens && withoutParens !== entity) {
+      addSlugVariants(withoutParens);
+    }
+    const words = (withoutParens || entity).split(/\s+/).filter(Boolean);
+    if (words.length >= 1) {
+      addSlugVariants(words.slice(0, 2).join(" "));
+    }
+  }
+
+  return candidates;
 }
 
 function normalizeAssetKey(value) {
