@@ -1145,8 +1145,8 @@ function renderHtml(
       .snapshot-treas-cell-num { text-align:right; color:#ffcfb8; white-space:nowrap; font-variant-numeric:tabular-nums; }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
-      .footer { padding: 0; font-size: 12px; color: #7a7a7a; }
-      .footer-legal { padding: 16px 32px 12px; color: #ff4202; }
+      .footer { padding: 0; font-size: 12px; color: #ffffff; background: #0f0f0f; }
+      .footer-legal { padding: 16px 32px 12px; color: #ffffff; background: #0f0f0f; border-top: 1px solid #171717; }
       .footer-legal p { margin: 0; }
       .footer-legal p + p { margin-top: 4px; }
       .footer-dark { background: #0f0f0f; padding: 22px 32px; }
