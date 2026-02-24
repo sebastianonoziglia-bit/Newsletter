@@ -1065,17 +1065,20 @@ function renderHtml(
       .hero-subtitle { margin: 0 0 14px; color: rgba(255,255,255,0.6); font-size: 14px; }
       .hero-badge { display: inline-block; font-size: 11px; color: #ffcfb8; background: rgba(255,66,2,0.25); border: 1px solid rgba(255,66,2,0.45); border-radius: 999px; padding: 5px 12px; }
       .intro-wrap { padding: 16px 32px 8px; border-top: 1px solid #f0f0f0; background: #ffffff; }
+      .intro-preface { margin: 0 0 12px; }
+      .intro-preface p { margin: 0; color: #1f1f1f; font-size: 14px; line-height: 1.7; }
+      .intro-preface p + p { margin-top: 10px; }
       .intro-card { position: relative; overflow: hidden; border: 1px solid #232323; border-radius: 14px; background: #0f0f0f; }
       .intro-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.34; }
       .intro-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0.36) 0%, rgba(10,10,10,0.9) 100%); }
-      .intro-content { position: relative; z-index: 2; padding: 18px; }
-      .intro-head { margin-bottom: 12px; }
+      .intro-content { position: relative; z-index: 2; padding: 20px 22px; max-width: 560px; margin: 0 auto; }
+      .intro-head { margin-bottom: 14px; text-align: left; }
       .intro-kicker { margin: 0 0 6px; color: #ff4202; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
-      .intro-title { margin: 0; color: #ffffff; font-size: 20px; font-weight: 700; }
-      .intro-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+      .intro-title { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+      .intro-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
       .intro-item { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: flex-start; }
       .intro-num { width: 30px; height: 30px; border-radius: 9px; background: rgba(255,66,2,0.22); border: 1px solid rgba(255,66,2,0.55); color: #ff4202; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-      .intro-text { color: #ffffff; font-size: 14px; line-height: 1.45; font-weight: 500; margin-top: 4px; }
+      .intro-text { color: #ffffff; font-size: 15px; line-height: 1.55; font-weight: 600; margin-top: 2px; }
       .intro-empty { margin: 0; color: #d0d0d0; font-size: 13px; }
       .section { padding: 16px 32px; border-top: 1px solid #f0f0f0; }
       .section h2 { margin: 0 0 20px; font-size: 18px; font-weight: 700; }
@@ -1161,9 +1164,19 @@ function renderHtml(
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
         .section { padding: 18px 20px; }
+        .section p { font-size: 15px; line-height: 1.75; }
+        .section p + p { margin-top: 14px; }
+        .section ul { font-size: 15px; line-height: 1.75; margin: 16px 0 20px 18px; }
+        .section li { margin-bottom: 10px; }
+        .section .point-source { font-size: 12px; line-height: 1.65; }
         .intro-wrap { padding: 18px 20px 8px; }
-        .intro-content { padding: 14px; }
-        .intro-title { font-size: 18px; }
+        .intro-preface p { font-size: 15px; line-height: 1.75; }
+        .intro-content { padding: 18px 16px; max-width: none; }
+        .intro-title { font-size: 20px; }
+        .intro-list { gap: 13px; }
+        .intro-item { grid-template-columns: 34px 1fr; gap: 10px; }
+        .intro-num { width: 34px; height: 34px; font-size: 13px; border-radius: 10px; }
+        .intro-text { font-size: 15px; line-height: 1.58; }
         .hero-content { padding: 20px; }
         .hero-title { font-size: 22px; }
         .footer-legal { padding: 14px 20px 10px; }
@@ -1263,7 +1276,13 @@ ${marketHtml}
 }
 
 function renderIntroPoint(point) {
-  const highlights = parseIntroHighlights(point.content);
+  const parsed = parseIntroContent(point.content);
+  const highlights = parsed.highlights;
+  const prefaceHtml = parsed.prefaceLines.length
+    ? `<div class="intro-preface">${parsed.prefaceLines
+      .map((line) => `<p>${escapeHtml(line)}</p>`)
+      .join("")}</div>`
+    : "";
   const title = normalizeText(point.title) || "Intro";
   const itemsHtml = highlights.length
     ? highlights
@@ -1278,6 +1297,7 @@ function renderIntroPoint(point) {
 
   return `            <tr>
               <td class="intro-wrap">
+                ${prefaceHtml}
                 <div class="intro-card">
                   <img class="intro-bg" src="/intro.png" alt="" onerror="this.style.display='none'">
                   <div class="intro-shade"></div>
@@ -1294,10 +1314,10 @@ function renderIntroPoint(point) {
 `;
 }
 
-function parseIntroHighlights(rawContent) {
+function parseIntroContent(rawContent) {
   const text = normalizeText(rawContent).replace(/\r\n/g, "\n");
   if (!text) {
-    return [];
+    return { prefaceLines: [], highlights: [] };
   }
 
   const lines = text
@@ -1306,21 +1326,29 @@ function parseIntroHighlights(rawContent) {
     .filter(Boolean);
 
   const highlights = [];
+  const prefaceLines = [];
+  let sawHighlight = false;
   lines.forEach((line) => {
     const numbered = line.match(/^\s*\d{1,3}[\)\.\-:]\s*(.+)$/);
     const bulleted = line.match(/^\s*[-*•]\s*(.+)$/);
     if (numbered && normalizeText(numbered[1])) {
       highlights.push(normalizeText(numbered[1]));
+      sawHighlight = true;
       return;
     }
     if (bulleted && normalizeText(bulleted[1])) {
       highlights.push(normalizeText(bulleted[1]));
+      sawHighlight = true;
       return;
     }
-    highlights.push(line);
+    if (!sawHighlight) {
+      prefaceLines.push(line);
+    } else {
+      highlights.push(line);
+    }
   });
 
-  return highlights;
+  return { prefaceLines, highlights };
 }
 
 function renderPoint(point, meta, imageOptions) {
