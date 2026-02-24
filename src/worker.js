@@ -32,6 +32,7 @@ const DEFAULT_META = {
   image_dir: ".",
   auto_image_by_order: "true",
   logo_url: "/brand_orange_bg_transparent@2xSite.svg",
+  show_point_sources: "false",
 };
 
 export default {
@@ -1008,6 +1009,7 @@ function renderHtml(
   const footerInstagramIcon = "/instagram.png";
   const footerXIcon = "/x:twitter.png";
   const footerLinkedinIcon = "/linkedin.png";
+  const showPointSources = parseBool(meta.show_point_sources);
 
   const introPoint = points.find(
     (point) => point.order === 0 || normalizeText(point.title).toLowerCase() === "intro"
@@ -1015,7 +1017,7 @@ function renderHtml(
   const regularPoints = introPoint ? points.filter((point) => point !== introPoint) : points;
   const introHtml = introPoint ? renderIntroPoint(introPoint) : "";
   const pointsHtml = regularPoints
-    .map((point) => renderPoint(point, meta, imageOptions))
+    .map((point) => renderPoint(point, meta, imageOptions, showPointSources))
     .join("");
   const marketHtml = renderMarketSection(
     meta,
@@ -1354,7 +1356,7 @@ function parseIntroContent(rawContent) {
   return { prefaceLines, highlights };
 }
 
-function renderPoint(point, meta, imageOptions) {
+function renderPoint(point, meta, imageOptions, showPointSources = false) {
   const imageSources = resolveImageSources(point, meta, imageOptions);
   const imageBlock = renderImageBlock(point, imageSources);
   const extraImageSources = resolveExtraImagePaths(point, meta, imageOptions);
@@ -1367,7 +1369,7 @@ function renderPoint(point, meta, imageOptions) {
     output += `${indentBlock(imageBlock, 16)}\n`;
   }
   output += `${indentBlock(renderContentBlocks(point.content), 16)}\n`;
-  if (point.source) {
+  if (showPointSources && point.source) {
     output += `                <p class=\"point-source\">${escapeHtml(point.source)}</p>\n`;
   }
   if (extraImagesBlock) {
