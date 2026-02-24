@@ -1033,7 +1033,7 @@ function renderHtml(
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title} - Globalite Macro Brief</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1056,7 +1056,7 @@ function renderHtml(
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
       .wrapper { width: 100%; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 650px; max-width: 650px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .container { width: 100%; max-width: 650px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: 0.82; }
@@ -1188,6 +1188,15 @@ function renderHtml(
         .footer-legal { padding: 14px 20px 10px; }
         .footer-dark { padding: 18px 20px; }
         .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
+      }
+      @media (max-width: 600px) {
+        body, td, p, li, div {
+          font-size: 16px !important;
+          line-height: 1.6 !important;
+        }
+        h1 { font-size: 24px !important; }
+        h2 { font-size: 20px !important; }
+        h3 { font-size: 18px !important; }
       }
       @media print {
         .no-print { display: none !important; }
@@ -2024,7 +2033,7 @@ function renderContentBlocks(rawValue) {
     }
 
     if (line.startsWith("- ") || line.startsWith("* ")) {
-      const item = emphasizeNumbers(line.slice(2).trim());
+      const item = emphasizeLeadLabelAndNumbers(line.slice(2).trim());
       if (!listOpen) {
         blocks.push("<ul>");
         listOpen = true;
@@ -2032,12 +2041,25 @@ function renderContentBlocks(rawValue) {
       blocks.push(`<li>${item}</li>`);
     } else {
       closeList();
-      blocks.push(`<p>${emphasizeNumbers(line)}</p>`);
+      blocks.push(`<p>${emphasizeLeadLabelAndNumbers(line)}</p>`);
     }
   }
 
   closeList();
   return blocks.join("\n");
+}
+
+function emphasizeLeadLabelAndNumbers(text) {
+  const labelMatch = text.match(/^([A-Za-z][A-Za-z0-9 '&/().,-]{0,80}:)(\s*.*)?$/);
+  if (!labelMatch) {
+    return emphasizeNumbers(text);
+  }
+  const lead = `<strong>${escapeHtml(labelMatch[1])}</strong>`;
+  const rest = normalizeText(labelMatch[2] || "");
+  if (!rest) {
+    return lead;
+  }
+  return `${lead} ${emphasizeNumbers(rest)}`;
 }
 
 function emphasizeNumbers(text) {
