@@ -1101,6 +1101,7 @@ function renderHtml(
       .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
       .market-live strong { color: #ffffff; }
       .market-live span { color: #ffcfb8; }
+      .market-price-svg { width: 100%; height: auto; display: block; max-width: 100%; }
       /* Snapshot / bottom graphs */
       .snapshot-section { width:100%; margin-top:28px; padding-top:18px; border-top:1px solid #242424; }
       .snapshot-title { font-size:1.08em; font-weight:500; color:#fff; margin-bottom:14px; letter-spacing:.01em; }
@@ -1123,7 +1124,7 @@ function renderHtml(
       .snapshot-circ-fill { height:100%; background:linear-gradient(90deg,#ff4202 0%,#ff8f60 100%); width:0%; }
       .snapshot-circ-note { margin-top:8px; color:#9a9a9a; font-size:.84em; }
       .liq-bar-wrap { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
-      .liq-row { display:grid; grid-template-columns:80px 1fr 1fr 60px; gap:8px; align-items:center; font-size:.82em; color:#e6e6e6; }
+      .liq-row { display:grid; grid-template-columns:minmax(0,80px) 1fr 1fr minmax(0,60px); gap:8px; align-items:center; font-size:.82em; color:#e6e6e6; }
       .liq-label { color:#9a9a9a; white-space:nowrap; }
       .liq-bar-track { background:#1f1f1f; border-radius:4px; height:10px; overflow:hidden; position:relative; }
       .liq-bar-longs { height:100%; background:#ff4202; border-radius:4px; }
