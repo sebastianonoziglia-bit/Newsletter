@@ -637,6 +637,42 @@ function cleanEntityLabel(value, maxChars = 18) {
   return `${cleaned.slice(0, maxChars - 1).trimEnd()}…`;
 }
 
+function treasuryLogoFallback(entity) {
+  const source = cleanEntityLabel(entity, 64).replace(/[^a-zA-Z0-9\s]/g, " ");
+  const rawWords = source
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+  const stopWords = new Set([
+    "the",
+    "inc",
+    "incorporated",
+    "corp",
+    "corporation",
+    "company",
+    "holdings",
+    "group",
+    "fund",
+    "trust",
+    "bitcoin",
+    "etf",
+    "limited",
+    "ltd",
+    "plc",
+    "sa",
+    "ag",
+  ]);
+  const words = rawWords.filter((word) => !stopWords.has(word.toLowerCase()));
+  const pick = words.length ? words : rawWords;
+  if (!pick.length) {
+    return "BT";
+  }
+  if (pick.length === 1) {
+    return pick[0].slice(0, 2).toUpperCase();
+  }
+  return `${pick[0][0] || ""}${pick[1][0] || ""}`.toUpperCase();
+}
+
 function readBtcPricePoints(rows, limit = 60) {
   if (!rows.length) {
     return [];
@@ -1015,7 +1051,7 @@ function renderHtml(
       .container { width: 650px; max-width: 650px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
-      .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }
+      .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: 0.82; }
       .hero-gradient { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.72) 100%); }
       .hero-content { position: relative; z-index: 2; padding: 28px 32px; }
       .hero-logo img { width: 150px; height: auto; display: block; margin: 0 0 14px; }
@@ -1069,15 +1105,16 @@ function renderHtml(
       .liq-total { text-align:right; color:#9a9a9a; }
       .liq-legend { display:flex; gap:14px; margin-bottom:8px; font-size:.82em; }
       .liq-dot { width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:4px; }
-      .snapshot-treas-bars { display:flex; gap:12px; align-items:flex-end; overflow-x:auto; padding:2px 2px 8px; width:100%; max-width:100%; box-sizing:border-box; }
-      .snapshot-treas-item { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1 0 100px; min-width:100px; max-width:140px; }
+      .snapshot-treas-bars { display:flex; gap:12px; align-items:flex-start; overflow-x:auto; padding:2px 2px 8px; width:100%; max-width:100%; box-sizing:border-box; }
+      .snapshot-treas-item { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px; flex:1 0 100px; min-width:100px; max-width:140px; }
       .snapshot-treas-track { width:100%; height:160px; border-radius:8px; border:1px solid #2a2a2a; background:#1a1a1a; overflow:hidden; display:flex; align-items:flex-end; }
       .snapshot-treas-fill { width:100%; background:linear-gradient(180deg,#ff8f60 0%,#ff4202 100%); }
       .snapshot-treas-logo-wrap { width:26px; height:26px; border-radius:999px; background:#0f0f0f; border:1px solid #2a2a2a; display:flex; align-items:center; justify-content:center; overflow:hidden; }
       .snapshot-treas-logo { width:20px; height:20px; object-fit:contain; }
-      .snapshot-treas-label { font-size:.78em; color:#e6e6e6; text-align:center; line-height:1.25; min-height:30px; }
-      .snapshot-treas-value { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:.8em; }
-      .snapshot-treas-group { color:#888; font-size:.7em; text-align:center; min-height:14px; }
+      .snapshot-treas-logo-fallback { width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#ffcfb8; letter-spacing:.3px; text-transform:uppercase; }
+      .snapshot-treas-label { font-size:.78em; color:#e6e6e6; text-align:center; line-height:1.25; min-height:32px; max-height:32px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+      .snapshot-treas-value { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:.8em; min-height:18px; }
+      .snapshot-treas-group { color:#888; font-size:.7em; text-align:center; min-height:28px; max-height:28px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
       .snapshot-treas-table-wrap { margin-top:12px; border:1px solid #2a2a2a; border-radius:10px; overflow:hidden; }
       .snapshot-treas-table { width:100%; border-collapse:collapse; font-size:.78em; }
       .snapshot-treas-table th { text-align:left; padding:8px 10px; color:#9f9f9f; font-weight:500; border-bottom:1px solid #2a2a2a; background:#121212; white-space:nowrap; }
@@ -1652,9 +1689,11 @@ function renderSnapshotSection(data) {
         const logoCandidates = resolveTreasuryLogoCandidates(row);
         const logoSrc = logoCandidates[0] || "";
         const logoFallbacks = logoCandidates.slice(1).join("|");
-        const logoHtml = logoSrc
-          ? `<span class="snapshot-treas-logo-wrap"><img class="snapshot-treas-logo" src="${escapeHtml(logoSrc, true)}" data-fallbacks="${escapeHtml(logoFallbacks, true)}" alt="${escapeHtml(row.entity || "", true)}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.closest('.snapshot-treas-logo-wrap').style.display='none';}"></span>`
+        const logoFallbackText = escapeHtml(treasuryLogoFallback(row.entity || ""));
+        const logoImg = logoSrc
+          ? `<img class="snapshot-treas-logo" src="${escapeHtml(logoSrc, true)}" data-fallbacks="${escapeHtml(logoFallbacks, true)}" alt="${escapeHtml(row.entity || "", true)}" onload="const fb=this.nextElementSibling;if(fb){fb.style.display='none';}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.style.display='none';const fb=this.nextElementSibling;if(fb){fb.style.display='flex';}}">`
           : "";
+        const logoHtml = `<span class="snapshot-treas-logo-wrap">${logoImg}<span class="snapshot-treas-logo-fallback"${logoImg ? ' style="display:none"' : ""}>${logoFallbackText}</span></span>`;
         const groupHtml = row.holder_group
           ? `<div class="snapshot-treas-group">${escapeHtml(row.holder_group)}</div>`
           : '<div class="snapshot-treas-group"></div>';
@@ -2001,16 +2040,65 @@ function resolveTreasuryLogoCandidates(row) {
     candidates.push(resolved);
   };
 
+  const addFilenameFamily = (value) => {
+    const raw = normalizeText(value);
+    if (!raw) {
+      return;
+    }
+    const trimmed = raw.replace(/^\.\/+/, "").replace(/^public\//i, "").replace(/^\/+/, "");
+    if (!trimmed) {
+      return;
+    }
+    const names = new Set([trimmed, trimmed.toLowerCase()]);
+    names.forEach((name) => {
+      addCandidate(`/${name}`);
+      if (!name.includes("/")) {
+        addCandidate(`/logos/${name}`);
+      }
+      if (!/\.[a-z0-9]{2,5}$/i.test(name)) {
+        [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => {
+          addCandidate(`/${name}${ext}`);
+          if (!name.includes("/")) {
+            addCandidate(`/logos/${name}${ext}`);
+          }
+        });
+      }
+      const slug = normalizeLogoSlug(name);
+      if (slug) {
+        [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => {
+          addCandidate(`/${slug}${ext}`);
+          addCandidate(`/logos/${slug}${ext}`);
+          const hyphenSlug = slug.replace(/_/g, "-");
+          if (hyphenSlug !== slug) {
+            addCandidate(`/${hyphenSlug}${ext}`);
+            addCandidate(`/logos/${hyphenSlug}${ext}`);
+          }
+        });
+      }
+    });
+  };
+
   const addSlugVariants = (value) => {
     const slug = normalizeLogoSlug(value);
     if (!slug) {
       return;
     }
-    [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => addCandidate(`/${slug}${ext}`));
+    [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => {
+      addCandidate(`/${slug}${ext}`);
+      addCandidate(`/logos/${slug}${ext}`);
+      const hyphenSlug = slug.replace(/_/g, "-");
+      if (hyphenSlug !== slug) {
+        addCandidate(`/${hyphenSlug}${ext}`);
+        addCandidate(`/logos/${hyphenSlug}${ext}`);
+      }
+    });
     const parts = slug.split("_").filter(Boolean);
     if (parts.length > 1) {
       const shortSlug = parts[0];
-      [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => addCandidate(`/${shortSlug}${ext}`));
+      [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => {
+        addCandidate(`/${shortSlug}${ext}`);
+        addCandidate(`/logos/${shortSlug}${ext}`);
+      });
     }
   };
 
@@ -2020,12 +2108,7 @@ function resolveTreasuryLogoCandidates(row) {
       .split(/[|,;]/)
       .map((part) => part.trim())
       .filter(Boolean)
-      .forEach((part) => {
-        addCandidate(part);
-        if (!/\.[a-z0-9]{2,5}$/i.test(part)) {
-          [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => addCandidate(`${part}${ext}`));
-        }
-      });
+      .forEach((part) => addFilenameFamily(part));
   }
 
   const entity = normalizeText(row && row.entity);
