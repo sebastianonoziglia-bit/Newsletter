@@ -280,7 +280,7 @@ async function fetchGoogleTabRows(sheetId, tabName, required) {
 
 async function fetchGoogleLiveBtcRows(sheetId, tabName, required) {
   const query =
-    "select * where upper(J) contains 'BTC' or upper(J) contains 'BITCOIN' or upper(J) contains 'XBT' order by A desc limit 400";
+    "select A,B,I,J where upper(J) contains 'BTC' or upper(J) contains 'BITCOIN' or upper(J) contains 'XBT' order by A desc limit 600";
   const url =
     `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?` +
     `tqx=out:csv&sheet=${encodeURIComponent(tabName)}&tq=${encodeURIComponent(query)}`;
@@ -550,23 +550,41 @@ function readLiveBtcPrice(rows) {
     return null;
   }
   const currencyIdx = "currency" in mapping ? mapping.currency : -1;
+  let latest = null;
+  let latestDate = null;
 
-  for (let i = rows.length - 1; i >= 1; i -= 1) {
+  for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i];
     if (!isBtcAsset(row[mapping.asset])) {
       continue;
     }
     const price = parseNumber(row[closeIdx], Number.NaN);
-    if (!Number.isFinite(price)) {
+    if (!Number.isFinite(price) || price <= 0) {
       continue;
     }
-    return {
+    const dateRaw = row[mapping.date];
+    const dateValue = parseDateValue(dateRaw);
+    const candidate = {
       price,
-      date: normalizeText(row[mapping.date]),
+      date: renderDateLabel(dateRaw),
       currency: currencyIdx >= 0 ? normalizeText(row[currencyIdx]) || "USD" : "USD",
     };
+
+    if (!latest) {
+      latest = candidate;
+      latestDate = dateValue;
+      continue;
+    }
+
+    if (dateValue && (!latestDate || dateValue >= latestDate)) {
+      latest = candidate;
+      latestDate = dateValue;
+    } else if (!dateValue && !latestDate) {
+      latest = candidate;
+    }
   }
-  return null;
+
+  return latest;
 }
 
 function parseDateValue(value) {
@@ -1571,14 +1589,14 @@ function renderSnapshotSection(data) {
     const rowsHtml = rows
       .map((row, index) => {
         const btc = Number(row.btc || 0);
-        const btcFmt = btc >= 1e3 ? `${(btc / 1e3).toFixed(1)}K` : btc.toFixed(0);
+        const btcFmt = Math.round(btc).toLocaleString("en-US");
         const groupBadge = row.holder_group
           ? `<span class="treas-group-badge">${escapeHtml(row.holder_group)}</span>`
           : "";
         return `<div class="treas-row">
         <span class="treas-rank">${index + 1}</span>
         <span class="treas-name">${escapeHtml(row.entity || "")}${groupBadge}</span>
-        <span class="treas-btc">₿ ${escapeHtml(btcFmt)}</span>
+        <span class="treas-btc">${escapeHtml(btcFmt)} BTC</span>
       </div>`;
       })
       .join("");
