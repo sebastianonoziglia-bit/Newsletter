@@ -746,7 +746,15 @@ function readTreasuryBars(rows, limit = null) {
       ? mapping.logo
       : ("logo_path" in mapping
           ? mapping.logo_path
-          : ("icon" in mapping ? mapping.icon : ("image" in mapping ? mapping.image : -1)));
+          : ("icon" in mapping
+              ? mapping.icon
+              : ("image" in mapping
+                  ? mapping.image
+                  : ("png" in mapping
+                      ? mapping.png
+                      : ("file" in mapping
+                          ? mapping.file
+                          : ("filename" in mapping ? mapping.filename : -1))))));
   const showIdx = "show" in mapping ? mapping.show : -1;
   const bars = [];
 
@@ -1070,6 +1078,13 @@ function renderHtml(
       .snapshot-treas-label { font-size:.78em; color:#e6e6e6; text-align:center; line-height:1.25; min-height:30px; }
       .snapshot-treas-value { color:#ff8f60; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:.8em; }
       .snapshot-treas-group { color:#888; font-size:.7em; text-align:center; min-height:14px; }
+      .snapshot-treas-table-wrap { margin-top:12px; border:1px solid #2a2a2a; border-radius:10px; overflow:hidden; }
+      .snapshot-treas-table { width:100%; border-collapse:collapse; font-size:.78em; }
+      .snapshot-treas-table th { text-align:left; padding:8px 10px; color:#9f9f9f; font-weight:500; border-bottom:1px solid #2a2a2a; background:#121212; white-space:nowrap; }
+      .snapshot-treas-table td { padding:7px 10px; border-bottom:1px solid #202020; color:#e6e6e6; vertical-align:middle; }
+      .snapshot-treas-table tr:last-child td { border-bottom:none; }
+      .snapshot-treas-cell-name { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .snapshot-treas-cell-num { text-align:right; color:#ffcfb8; white-space:nowrap; font-variant-numeric:tabular-nums; }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
       .footer { padding: 0; font-size: 12px; color: #7a7a7a; }
@@ -1187,8 +1202,8 @@ ${marketHtml}
 }
 
 function renderPoint(point, meta, imageOptions) {
-  const imageSrc = resolveImagePath(point, meta, imageOptions);
-  const imageBlock = renderImageBlock(point, imageSrc);
+  const imageSources = resolveImageSources(point, meta, imageOptions);
+  const imageBlock = renderImageBlock(point, imageSources);
   const extraImageSources = resolveExtraImagePaths(point, meta, imageOptions);
   const extraImagesBlock = renderExtraImagesBlock(point, extraImageSources);
 
@@ -1210,14 +1225,16 @@ function renderPoint(point, meta, imageOptions) {
   return output;
 }
 
-function renderImageBlock(point, imageSrc) {
-  if (!imageSrc) {
+function renderImageBlock(point, imageSources) {
+  const primarySrc = imageSources[0] || "";
+  if (!primarySrc) {
     return "";
   }
+  const fallbacks = imageSources.slice(1).join("|");
   const caption = point.image_caption || point.title;
   return (
     '<div class="image">\n' +
-    `  <img src="${escapeHtml(imageSrc, true)}" alt="${escapeHtml(point.title)}" onerror="this.closest('.image').style.display='none'">\n` +
+    `  <img src="${escapeHtml(primarySrc, true)}" data-fallbacks="${escapeHtml(fallbacks, true)}" alt="${escapeHtml(point.title)}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.closest('.image').style.display='none';}">\n` +
     `  <div class="caption">${escapeHtml(caption)}</div>\n` +
     "</div>"
   );
@@ -1242,6 +1259,24 @@ function formatUsd(value) {
     return `$${Math.round(value).toLocaleString("en-US")}`;
   }
   return `$${Number(value).toFixed(2)}`.replace(/\.00$/, "");
+}
+
+function formatUsdLarge(value) {
+  const abs = Math.abs(value);
+  const trim = (num) => num.toFixed(2).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+  if (abs >= 1e12) {
+    return `$${trim(value / 1e12)}T`;
+  }
+  if (abs >= 1e9) {
+    return `$${trim(value / 1e9)}B`;
+  }
+  if (abs >= 1e6) {
+    return `$${trim(value / 1e6)}M`;
+  }
+  if (abs >= 1e3) {
+    return `$${trim(value / 1e3)}K`;
+  }
+  return formatUsd(value);
 }
 
 function buildBtcPriceChartSvg(points) {
@@ -1451,6 +1486,7 @@ function renderMarketSection(
     circulating: circulatingMetric,
     liquidations: liquidationBars,
     treasuries: treasuryBars,
+    live_btc_price: liveBtc && Number.isFinite(Number(liveBtc.price)) ? Number(liveBtc.price) : 0,
     settings: graphSettingsMap || {},
     title: normalizeText(meta.snapshot_title) || "Bitcoin Data",
   });
@@ -1497,7 +1533,7 @@ function renderSnapshotSection(data) {
   const treasuriesSetting = {
     show: !settings.treasuries || settings.treasuries.show !== false,
     title: (settings.treasuries && normalizeText(settings.treasuries.title)) || "Treasuries",
-    max_bars: toPositiveInt(settings.treasuries && settings.treasuries.max_bars, null),
+    max_bars: toPositiveInt(settings.treasuries && settings.treasuries.max_bars, 10),
   };
 
   if (ownershipSetting.show && data.distribution && data.distribution.length) {
@@ -1598,12 +1634,16 @@ function renderSnapshotSection(data) {
     const visibleRows = data.treasuries
       .filter((row) => isRowVisible(row.show))
       .sort((a, b) => Number(b.btc || 0) - Number(a.btc || 0));
-    const rows =
+    const barsLimit =
       treasuriesSetting.max_bars && treasuriesSetting.max_bars > 0
-        ? visibleRows.slice(0, treasuriesSetting.max_bars)
-        : visibleRows;
-    const maxBtc = Math.max(...rows.map((row) => Number(row.btc || 0)), 1);
-    const rowsHtml = rows
+        ? treasuriesSetting.max_bars
+        : 10;
+    const barRows = visibleRows.slice(0, barsLimit);
+    const remainingRows = visibleRows.slice(barsLimit);
+    const totalBtc = visibleRows.reduce((sum, row) => sum + Number(row.btc || 0), 0);
+    const liveBtcPrice = Number(data.live_btc_price || 0);
+    const maxBtc = Math.max(...barRows.map((row) => Number(row.btc || 0)), 1);
+    const rowsHtml = barRows
       .map((row) => {
         const btc = Number(row.btc || 0);
         const btcFmt = Math.round(btc).toLocaleString("en-US");
@@ -1626,9 +1666,39 @@ function renderSnapshotSection(data) {
       </div>`;
       })
       .join("");
+    const remainderTable = remainingRows.length
+      ? `<div class="snapshot-treas-table-wrap">
+      <table class="snapshot-treas-table" role="presentation">
+        <thead>
+          <tr>
+            <th>Entity</th>
+            <th class="snapshot-treas-cell-num">BTC</th>
+            <th class="snapshot-treas-cell-num">% of total</th>
+            <th class="snapshot-treas-cell-num">Value (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${remainingRows
+            .map((row) => {
+              const btc = Number(row.btc || 0);
+              const pctTotal = totalBtc > 0 ? (btc / totalBtc) * 100 : 0;
+              const usdValue = liveBtcPrice > 0 ? btc * liveBtcPrice : 0;
+              return `<tr>
+            <td class="snapshot-treas-cell-name">${escapeHtml(row.entity || "")}</td>
+            <td class="snapshot-treas-cell-num">${escapeHtml(Math.round(btc).toLocaleString("en-US"))}</td>
+            <td class="snapshot-treas-cell-num">${escapeHtml(formatPercent(pctTotal))}</td>
+            <td class="snapshot-treas-cell-num">${escapeHtml(liveBtcPrice > 0 ? formatUsdLarge(usdValue) : "-")}</td>
+          </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>`
+      : "";
     cards.push(`<article class="snapshot-card">
       <h3>${escapeHtml(treasuriesSetting.title)}</h3>
       <div class="snapshot-treas-bars">${rowsHtml}</div>
+      ${remainderTable}
     </article>`);
   }
 
@@ -1672,38 +1742,83 @@ function resolveExtraImagePaths(point, meta, imageOptions) {
   return sources;
 }
 
-function resolveImagePath(point, meta, imageOptions) {
+function resolveImageSources(point, meta, imageOptions) {
   const useR2Images = Boolean(imageOptions?.useR2Images);
   const r2ImagePrefix = normalizeText(imageOptions?.r2ImagePrefix) || "image";
   const r2ImageExt = normalizeText(imageOptions?.r2ImageExt) || "jpg";
   const imagePath = normalizeText(point.image_path);
-  let candidate = "";
+  const imageBaseUrl = normalizeText(meta.image_base_url);
+  const candidates = [];
+  const seen = new Set();
+
+  const add = (value) => {
+    const normalized = normalizeText(value);
+    if (!normalized) {
+      return;
+    }
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    candidates.push(normalized);
+  };
+
+  const pushCandidateWithFallbacks = (candidate, explicitLocalPreferred = false) => {
+    const clean = normalizeText(candidate).replace(/^\.\/+/, "");
+    if (!clean) {
+      return;
+    }
+    if (looksLikeRemoteImageSource(clean)) {
+      add(clean);
+      return;
+    }
+
+    const localPath = resolveAssetPath(clean, "");
+    const basePath = clean.replace(/^\/+/, "");
+    if (explicitLocalPreferred) {
+      add(localPath);
+      if (imageBaseUrl) {
+        add(`${imageBaseUrl.replace(/\/+$/, "")}/${basePath}`);
+      }
+      return;
+    }
+
+    if (imageBaseUrl) {
+      add(`${imageBaseUrl.replace(/\/+$/, "")}/${basePath}`);
+    }
+    if (useR2Images) {
+      add(`/img/${basePath}`);
+    }
+    add(localPath);
+  };
 
   if (imagePath) {
-    candidate = imagePath;
-  } else if (parseBool(meta.auto_image_by_order)) {
-    candidate = useR2Images
-      ? `${r2ImagePrefix}${point.order}.${r2ImageExt}`
-      : `${point.order}.png`;
+    const isExplicitLocal = /^(\/|\.\/|public\/)/i.test(imagePath);
+    pushCandidateWithFallbacks(imagePath, isExplicitLocal);
+    if (!/\.[a-z0-9]{2,5}$/i.test(imagePath)) {
+      ["png", "jpg", "jpeg", "webp"].forEach((ext) =>
+        pushCandidateWithFallbacks(`${imagePath}.${ext}`, isExplicitLocal)
+      );
+    }
+    return candidates;
   }
 
-  if (!candidate) {
-    return "";
-  }
-  if (looksLikeRemoteImageSource(candidate)) {
-    return candidate;
-  }
-
-  const imageBaseUrl = normalizeText(meta.image_base_url);
-  if (imageBaseUrl) {
-    return `${imageBaseUrl.replace(/\/+$/, "")}/${candidate.replace(/^\/+/, "")}`;
+  if (!parseBool(meta.auto_image_by_order)) {
+    return candidates;
   }
 
   if (useR2Images) {
-    return `/img/${candidate.replace(/^\/+/, "")}`;
+    pushCandidateWithFallbacks(`${r2ImagePrefix}${point.order}.${r2ImageExt}`);
+    return candidates;
   }
 
-  return `/${candidate.replace(/^\/+/, "")}`;
+  const baseNames = [`${point.order}`, `image${point.order}`];
+  const exts = ["png", "jpg", "jpeg", "webp"];
+  baseNames.forEach((base) => {
+    exts.forEach((ext) => pushCandidateWithFallbacks(`${base}.${ext}`));
+  });
+  return candidates;
 }
 
 function resolveAssetPath(rawValue, fallbackPath) {
@@ -1904,7 +2019,12 @@ function resolveTreasuryLogoCandidates(row) {
       .split(/[|,;]/)
       .map((part) => part.trim())
       .filter(Boolean)
-      .forEach(addCandidate);
+      .forEach((part) => {
+        addCandidate(part);
+        if (!/\.[a-z0-9]{2,5}$/i.test(part)) {
+          [".png", ".webp", ".jpg", ".jpeg", ".svg"].forEach((ext) => addCandidate(`${part}${ext}`));
+        }
+      });
   }
 
   const entity = normalizeText(row && row.entity);
