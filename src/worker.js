@@ -1058,7 +1058,7 @@ function renderHtml(
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
       .wrapper { width: 100% !important; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 100%; max-width: 680px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .container { width: 100%; max-width: 680px; box-sizing: border-box; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: 0.82; }
@@ -1218,7 +1218,7 @@ function renderHtml(
     <table class="wrapper" role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td align="center">
-          <table class="container" role="presentation" cellpadding="0" cellspacing="0">
+          <table class="container" role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td class="divider">&nbsp;</td>
             </tr>
@@ -2177,7 +2177,7 @@ function resolveTreasuryLogoCandidates(row) {
     if (!resolved) {
       return;
     }
-    const key = resolved.toLowerCase();
+    const key = resolved;
     if (seen.has(key)) {
       return;
     }
