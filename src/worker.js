@@ -1043,6 +1043,7 @@ function renderHtml(
         background: #f5f5f5;
         font-family: "Poppins", Arial, sans-serif;
         color: #1f1f1f;
+        -webkit-text-size-adjust: 100%;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
@@ -1065,7 +1066,7 @@ function renderHtml(
       .hero-subtitle { margin: 0 0 14px; color: rgba(255,255,255,0.6); font-size: 14px; }
       .hero-badge { display: inline-block; font-size: 11px; color: #ffcfb8; background: rgba(255,66,2,0.25); border: 1px solid rgba(255,66,2,0.45); border-radius: 999px; padding: 5px 12px; }
       .intro-wrap { padding: 16px 32px 8px; border-top: 1px solid #f0f0f0; background: #ffffff; }
-      .intro-preface { margin: 0 0 12px; }
+      .intro-preface { margin: 0 0 20px; }
       .intro-preface p { margin: 0; color: #1f1f1f; font-size: 14px; line-height: 1.7; }
       .intro-preface p + p { margin-top: 10px; }
       .intro-card { position: relative; overflow: hidden; border: 1px solid #232323; border-radius: 14px; background: #0f0f0f; }
@@ -1073,7 +1074,6 @@ function renderHtml(
       .intro-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0.36) 0%, rgba(10,10,10,0.9) 100%); }
       .intro-content { position: relative; z-index: 2; padding: 20px 22px; max-width: 560px; margin: 0 auto; }
       .intro-head { margin-bottom: 14px; text-align: left; }
-      .intro-kicker { margin: 0 0 6px; color: #ff4202; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
       .intro-title { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
       .intro-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
       .intro-item { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: flex-start; }
@@ -1164,19 +1164,23 @@ function renderHtml(
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
         .section { padding: 18px 20px; }
-        .section p { font-size: 15px; line-height: 1.75; }
+        .section h2 { font-size: 21px; margin: 0 0 16px; }
+        .section p { font-size: 16px; line-height: 1.82; }
         .section p + p { margin-top: 14px; }
-        .section ul { font-size: 15px; line-height: 1.75; margin: 16px 0 20px 18px; }
+        .section ul { font-size: 16px; line-height: 1.82; margin: 16px 0 20px 18px; }
         .section li { margin-bottom: 10px; }
-        .section .point-source { font-size: 12px; line-height: 1.65; }
+        .section .point-source { font-size: 13px; line-height: 1.7; }
         .intro-wrap { padding: 18px 20px 8px; }
-        .intro-preface p { font-size: 15px; line-height: 1.75; }
+        .intro-preface { margin-bottom: 22px; }
+        .intro-preface p { font-size: 16px; line-height: 1.82; }
         .intro-content { padding: 18px 16px; max-width: none; }
-        .intro-title { font-size: 20px; }
+        .intro-title { font-size: 22px; }
         .intro-list { gap: 13px; }
         .intro-item { grid-template-columns: 34px 1fr; gap: 10px; }
         .intro-num { width: 34px; height: 34px; font-size: 13px; border-radius: 10px; }
-        .intro-text { font-size: 15px; line-height: 1.58; }
+        .intro-text { font-size: 16px; line-height: 1.65; }
+        .snapshot-treas-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .snapshot-treas-table { min-width: 560px; }
         .hero-content { padding: 20px; }
         .hero-title { font-size: 22px; }
         .footer-legal { padding: 14px 20px 10px; }
@@ -1303,7 +1307,6 @@ function renderIntroPoint(point) {
                   <div class="intro-shade"></div>
                   <div class="intro-content">
                     <div class="intro-head">
-                      <p class="intro-kicker">Weekly Highlights</p>
                       <h2 class="intro-title">${escapeHtml(title)}</h2>
                     </div>
                     <ul class="intro-list">${itemsHtml}</ul>
