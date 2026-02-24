@@ -128,7 +128,7 @@ export default {
         : {};
       const treasuriesTopN = toPositiveInt(
         graphSettingsMap.treasuries && graphSettingsMap.treasuries.top_n,
-        6
+        null
       );
       const liquidationsTopN = toPositiveInt(
         graphSettingsMap.liquidations && graphSettingsMap.liquidations.top_n,
@@ -772,7 +772,10 @@ function readTreasuryBars(rows, limit = 6) {
   }
 
   bars.sort((a, b) => b.btc - a.btc);
-  return bars.slice(0, limit);
+  if (Number.isFinite(limit) && limit > 0) {
+    return bars.slice(0, limit);
+  }
+  return bars;
 }
 
 function readCirculatingMetric(rows) {
@@ -1056,9 +1059,9 @@ function renderHtml(
       .liq-total { text-align:right; color:#9a9a9a; }
       .liq-legend { display:flex; gap:14px; margin-bottom:8px; font-size:.82em; }
       .liq-dot { width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:4px; }
-      .snapshot-treas-bars { display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:10px; align-items:end; }
-      .snapshot-treas-item { display:flex; flex-direction:column; align-items:center; gap:6px; }
-      .snapshot-treas-track { width:100%; max-width:82px; height:130px; border-radius:8px; border:1px solid #2a2a2a; background:#1a1a1a; overflow:hidden; display:flex; align-items:flex-end; }
+      .snapshot-treas-bars { display:flex; gap:12px; align-items:flex-end; overflow-x:auto; padding-bottom:6px; }
+      .snapshot-treas-item { display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 102px; }
+      .snapshot-treas-track { width:100%; max-width:92px; height:150px; border-radius:8px; border:1px solid #2a2a2a; background:#1a1a1a; overflow:hidden; display:flex; align-items:flex-end; }
       .snapshot-treas-fill { width:100%; background:linear-gradient(180deg,#ff8f60 0%,#ff4202 100%); }
       .snapshot-treas-logo-wrap { width:26px; height:26px; border-radius:999px; background:#0f0f0f; border:1px solid #2a2a2a; display:flex; align-items:center; justify-content:center; overflow:hidden; }
       .snapshot-treas-logo { width:20px; height:20px; object-fit:contain; }
@@ -1078,7 +1081,7 @@ function renderHtml(
       .footer-site-name { display: block; color: #ffffff; font-size: 13px; font-weight: 700; }
       .footer-site-url { display: block; color: #ff4202; font-size: 11px; }
       .footer-socials { display: flex; gap: 8px; }
-      .footer-social-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.08); border-radius: 10px; }
+      .footer-social-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #ffffff; border-radius: 10px; border: 1px solid #efefef; }
       .footer-social-btn img { width: 20px; height: 20px; object-fit: contain; }
       .footer-copy { margin: 14px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; }
       @media (max-width: 720px) {
@@ -1494,7 +1497,7 @@ function renderSnapshotSection(data) {
   const treasuriesSetting = {
     show: !settings.treasuries || settings.treasuries.show !== false,
     title: (settings.treasuries && normalizeText(settings.treasuries.title)) || "Treasuries",
-    top_n: toPositiveInt(settings.treasuries && settings.treasuries.top_n, 6),
+    top_n: toPositiveInt(settings.treasuries && settings.treasuries.top_n, null),
   };
 
   if (ownershipSetting.show && data.distribution && data.distribution.length) {
@@ -1592,10 +1595,13 @@ function renderSnapshotSection(data) {
   }
 
   if (treasuriesSetting.show && data.treasuries && data.treasuries.length) {
-    const rows = data.treasuries
+    const visibleRows = data.treasuries
       .filter((row) => isRowVisible(row.show))
-      .sort((a, b) => Number(b.btc || 0) - Number(a.btc || 0))
-      .slice(0, treasuriesSetting.top_n || 6);
+      .sort((a, b) => Number(b.btc || 0) - Number(a.btc || 0));
+    const rows =
+      treasuriesSetting.top_n && treasuriesSetting.top_n > 0
+        ? visibleRows.slice(0, treasuriesSetting.top_n)
+        : visibleRows;
     const maxBtc = Math.max(...rows.map((row) => Number(row.btc || 0)), 1);
     const rowsHtml = rows
       .map((row) => {
