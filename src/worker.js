@@ -1,4 +1,4 @@
-const MAX_POINTS = 10;
+const MAX_POINTS = 50;
 const NUMBER_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[kKmMbBtT%])?/g;
 
 const DEFAULT_META = {
@@ -1009,7 +1009,12 @@ function renderHtml(
   const footerXIcon = "/x:twitter.png";
   const footerLinkedinIcon = "/linkedin.png";
 
-  const pointsHtml = points
+  const introPoint = points.find(
+    (point) => point.order === 0 || normalizeText(point.title).toLowerCase() === "intro"
+  );
+  const regularPoints = introPoint ? points.filter((point) => point !== introPoint) : points;
+  const introHtml = introPoint ? renderIntroPoint(introPoint) : "";
+  const pointsHtml = regularPoints
     .map((point) => renderPoint(point, meta, imageOptions))
     .join("");
   const marketHtml = renderMarketSection(
@@ -1059,6 +1064,19 @@ function renderHtml(
       .hero-title { margin: 0 0 6px; font-size: 28px; font-weight: 700; color: #ffffff; }
       .hero-subtitle { margin: 0 0 14px; color: rgba(255,255,255,0.6); font-size: 14px; }
       .hero-badge { display: inline-block; font-size: 11px; color: #ffcfb8; background: rgba(255,66,2,0.25); border: 1px solid rgba(255,66,2,0.45); border-radius: 999px; padding: 5px 12px; }
+      .intro-wrap { padding: 16px 32px 8px; border-top: 1px solid #f0f0f0; background: #ffffff; }
+      .intro-card { position: relative; overflow: hidden; border: 1px solid #232323; border-radius: 14px; background: #0f0f0f; }
+      .intro-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.34; }
+      .intro-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0.36) 0%, rgba(10,10,10,0.9) 100%); }
+      .intro-content { position: relative; z-index: 2; padding: 18px; }
+      .intro-head { margin-bottom: 12px; }
+      .intro-kicker { margin: 0 0 6px; color: #ff4202; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
+      .intro-title { margin: 0; color: #ffffff; font-size: 20px; font-weight: 700; }
+      .intro-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+      .intro-item { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: flex-start; }
+      .intro-num { width: 30px; height: 30px; border-radius: 9px; background: rgba(255,66,2,0.22); border: 1px solid rgba(255,66,2,0.55); color: #ff4202; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+      .intro-text { color: #ffffff; font-size: 14px; line-height: 1.45; font-weight: 500; margin-top: 4px; }
+      .intro-empty { margin: 0; color: #d0d0d0; font-size: 13px; }
       .section { padding: 16px 32px; border-top: 1px solid #f0f0f0; }
       .section h2 { margin: 0 0 20px; font-size: 18px; font-weight: 700; }
       .section p { margin: 0; font-size: 14px; line-height: 1.6; }
@@ -1125,7 +1143,9 @@ function renderHtml(
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
       .footer { padding: 0; font-size: 12px; color: #7a7a7a; }
-      .footer-legal { padding: 16px 32px 12px; }
+      .footer-legal { padding: 16px 32px 12px; color: #ff4202; }
+      .footer-legal p { margin: 0; }
+      .footer-legal p + p { margin-top: 4px; }
       .footer-dark { background: #0f0f0f; padding: 22px 32px; }
       .footer-bar { display: flex; align-items: center; justify-content: space-between; }
       .footer-site-link { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
@@ -1141,6 +1161,9 @@ function renderHtml(
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
         .section { padding: 18px 20px; }
+        .intro-wrap { padding: 18px 20px 8px; }
+        .intro-content { padding: 14px; }
+        .intro-title { font-size: 18px; }
         .hero-content { padding: 20px; }
         .hero-title { font-size: 22px; }
         .footer-legal { padding: 14px 20px 10px; }
@@ -1179,6 +1202,7 @@ function renderHtml(
                 </div>
               </td>
             </tr>
+${introHtml}
 ${pointsHtml}
             <tr>
               <td class="section tldr">
@@ -1236,6 +1260,67 @@ ${marketHtml}
     </script>
   </body>
 </html>`;
+}
+
+function renderIntroPoint(point) {
+  const highlights = parseIntroHighlights(point.content);
+  const title = normalizeText(point.title) || "Intro";
+  const itemsHtml = highlights.length
+    ? highlights
+      .map(
+        (text, index) => `<li class="intro-item">
+      <span class="intro-num">${index + 1}</span>
+      <span class="intro-text">${escapeHtml(text)}</span>
+    </li>`
+      )
+      .join("")
+    : '<li class="intro-empty">No highlights provided.</li>';
+
+  return `            <tr>
+              <td class="intro-wrap">
+                <div class="intro-card">
+                  <img class="intro-bg" src="/intro.png" alt="" onerror="this.style.display='none'">
+                  <div class="intro-shade"></div>
+                  <div class="intro-content">
+                    <div class="intro-head">
+                      <p class="intro-kicker">Weekly Highlights</p>
+                      <h2 class="intro-title">${escapeHtml(title)}</h2>
+                    </div>
+                    <ul class="intro-list">${itemsHtml}</ul>
+                  </div>
+                </div>
+              </td>
+            </tr>
+`;
+}
+
+function parseIntroHighlights(rawContent) {
+  const text = normalizeText(rawContent).replace(/\r\n/g, "\n");
+  if (!text) {
+    return [];
+  }
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim().replace(/^"+|"+$/g, ""))
+    .filter(Boolean);
+
+  const highlights = [];
+  lines.forEach((line) => {
+    const numbered = line.match(/^\s*\d{1,3}[\)\.\-:]\s*(.+)$/);
+    const bulleted = line.match(/^\s*[-*•]\s*(.+)$/);
+    if (numbered && normalizeText(numbered[1])) {
+      highlights.push(normalizeText(numbered[1]));
+      return;
+    }
+    if (bulleted && normalizeText(bulleted[1])) {
+      highlights.push(normalizeText(bulleted[1]));
+      return;
+    }
+    highlights.push(line);
+  });
+
+  return highlights;
 }
 
 function renderPoint(point, meta, imageOptions) {
@@ -1956,9 +2041,9 @@ function parseOrder(value, rowNumber) {
   if (!Number.isInteger(parsed)) {
     throw new Error(`Order value must be a whole number at points row ${rowNumber}.`);
   }
-  if (parsed < 1 || parsed > MAX_POINTS) {
+  if (parsed < 0 || parsed > MAX_POINTS) {
     throw new Error(
-      `Order value must be between 1 and ${MAX_POINTS} at points row ${rowNumber}.`
+      `Order value must be between 0 and ${MAX_POINTS} at points row ${rowNumber}.`
     );
   }
   return parsed;
