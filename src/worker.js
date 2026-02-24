@@ -993,7 +993,6 @@ function renderHtml(
         padding: 0;
         background: #f5f5f5;
         font-family: "Poppins", Arial, sans-serif;
-        font-size: 14px;
         color: #1f1f1f;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
@@ -1001,11 +1000,11 @@ function renderHtml(
       table { border-collapse: collapse; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
-      .toolbar { width: 100%; max-width: 620px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
+      .toolbar { width: 100%; max-width: 650px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
       .wrapper { width: 100%; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 620px; max-width: 620px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .container { width: 650px; max-width: 650px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }
@@ -1013,14 +1012,14 @@ function renderHtml(
       .hero-content { position: relative; z-index: 2; padding: 28px 32px; }
       .hero-logo img { width: 150px; height: auto; display: block; margin: 0 0 14px; }
       .hero-eyebrow { color: #ff4202; font-weight: 700; font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; margin: 0 0 6px; }
-      .hero-title { margin: 0 0 6px; font-size: 25px; font-weight: 700; color: #ffffff; }
-      .hero-subtitle { margin: 0 0 14px; color: rgba(255,255,255,0.6); font-size: 13px; }
+      .hero-title { margin: 0 0 6px; font-size: 28px; font-weight: 700; color: #ffffff; }
+      .hero-subtitle { margin: 0 0 14px; color: rgba(255,255,255,0.6); font-size: 14px; }
       .hero-badge { display: inline-block; font-size: 11px; color: #ffcfb8; background: rgba(255,66,2,0.25); border: 1px solid rgba(255,66,2,0.45); border-radius: 999px; padding: 5px 12px; }
       .section { padding: 16px 32px; border-top: 1px solid #f0f0f0; }
-      .section h2 { margin: 0 0 20px; font-size: 17px; font-weight: 700; }
-      .section p { margin: 0; font-size: 13px; line-height: 1.6; }
+      .section h2 { margin: 0 0 20px; font-size: 18px; font-weight: 700; }
+      .section p { margin: 0; font-size: 14px; line-height: 1.6; }
       .section p + p { margin-top: 12px; }
-      .section ul { margin: 20px 0 20px 18px; padding: 0; font-size: 13px; line-height: 1.6; }
+      .section ul { margin: 20px 0 20px 18px; padding: 0; font-size: 14px; line-height: 1.6; }
       .section li { margin-bottom: 8px; }
       .section .point-source { margin-top: 14px; font-size: 11px; line-height: 1.5; color: #8a8a8a; }
       .image { margin: 20px 0; }
