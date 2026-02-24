@@ -1634,6 +1634,7 @@ function renderSnapshotSection(data) {
     const visibleRows = data.treasuries
       .filter((row) => isRowVisible(row.show))
       .sort((a, b) => Number(b.btc || 0) - Number(a.btc || 0));
+    const selectedCount = visibleRows.length;
     const barsLimit =
       treasuriesSetting.max_bars && treasuriesSetting.max_bars > 0
         ? treasuriesSetting.max_bars
@@ -1671,7 +1672,7 @@ function renderSnapshotSection(data) {
       <table class="snapshot-treas-table" role="presentation">
         <thead>
           <tr>
-            <th>Entity</th>
+            <th>${escapeHtml(`Top: ${selectedCount}`)}</th>
             <th class="snapshot-treas-cell-num">BTC</th>
             <th class="snapshot-treas-cell-num">% of total</th>
             <th class="snapshot-treas-cell-num">Value (USD)</th>
