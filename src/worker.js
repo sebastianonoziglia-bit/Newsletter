@@ -1170,21 +1170,21 @@ function renderHtml(
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
         .section { padding: 18px 20px; }
-        .section h2 { font-size: 21px; margin: 0 0 16px; }
-        .section p { font-size: 16px; line-height: 1.82; }
+        .section h2 { font-size: 20px !important; margin: 0 0 16px; }
+        .section p { font-size: 16px !important; line-height: 1.75 !important; }
         .section p + p { margin-top: 14px; }
-        .section ul { font-size: 16px; line-height: 1.82; margin: 16px 0 20px 18px; }
-        .section li { margin-bottom: 10px; }
+        .section ul { font-size: 16px; line-height: 1.75; margin: 16px 0 20px 18px; }
+        .section li { font-size: 16px !important; line-height: 1.75 !important; margin-bottom: 10px; }
         .section .point-source { font-size: 13px; line-height: 1.7; }
         .intro-wrap { padding: 18px 20px 8px; }
         .intro-preface { margin-bottom: 22px; }
-        .intro-preface p { font-size: 16px; line-height: 1.82; }
-        .intro-content { padding: 18px 16px; max-width: none; }
+        .intro-preface p { font-size: 16px; line-height: 1.75; }
+        .intro-content { padding: 18px 16px; max-width: 560px; margin: 0 auto; }
         .intro-title { font-size: 22px; }
         .intro-list { gap: 13px; }
         .intro-item { grid-template-columns: 34px 1fr; gap: 10px; }
         .intro-num { width: 34px; height: 34px; font-size: 13px; border-radius: 10px; }
-        .intro-text { font-size: 16px; line-height: 1.65; }
+        .intro-text { font-size: 15px !important; line-height: 1.7 !important; }
         .snapshot-treas-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .snapshot-treas-table { min-width: 560px; }
         .hero-content { padding: 20px; }
@@ -1192,17 +1192,6 @@ function renderHtml(
         .footer-legal { padding: 14px 20px 10px; }
         .footer-dark { padding: 18px 20px; }
         .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
-      }
-      @media (max-width: 600px) {
-        .toolbar, .container { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
-        .wrapper { padding: 0 !important; }
-        body, p, li, div { font-size: 15px !important; line-height: 1.65 !important; }
-        td { font-size: 15px !important; line-height: 1.65 !important; }
-        h1 { font-size: 24px !important; }
-        h2 { font-size: 20px !important; }
-        h3 { font-size: 18px !important; }
-        .container { border: 0 !important; border-radius: 0 !important; }
-        .toolbar { padding: 8px 12px 6px !important; }
       }
       @media print {
         .no-print { display: none !important; }
