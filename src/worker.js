@@ -1054,11 +1054,11 @@ function renderHtml(
       table { border-collapse: collapse; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
-      .toolbar { width: 100%; max-width: 650px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
+      .toolbar { width: 100%; max-width: 680px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
-      .wrapper { width: 100%; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 100%; max-width: 650px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .wrapper { width: 100% !important; background: #f5f5f5; padding: 32px 0; }
+      .container { width: 100%; max-width: 680px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: 0.82; }
