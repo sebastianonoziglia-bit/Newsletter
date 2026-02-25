@@ -27,7 +27,7 @@ const DEFAULT_META = {
   hero_image_url: "/hero.png",
   footer_logo_url: "/logotosite.png",
   footer_instagram_icon: "/instagram.png",
-  footer_x_icon: "/x:twitter.png",
+  footer_x_icon: "/x_twitter.png",
   footer_linkedin_icon: "/linkedin.png",
   image_dir: ".",
   auto_image_by_order: "true",
@@ -1010,7 +1010,7 @@ function renderHtml(
   const logoUrl = escapeHtml(resolvedLogo, true);
   const footerLogoUrl = escapeHtml(resolveAssetPath(meta.footer_logo_url, "/logotosite.png"), true);
   const footerInstagramIcon = "/instagram.png";
-  const footerXIcon = "/x:twitter.png";
+  const footerXIcon = "/x_twitter.png";
   const footerLinkedinIcon = "/linkedin.png";
   const showPointSources = parseBool(meta.show_point_sources);
 
@@ -1057,11 +1057,11 @@ function renderHtml(
       table { border-collapse: collapse; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
-      .toolbar { width: 100%; max-width: 680px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
+      .toolbar { width: 100%; max-width: 640px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
       .wrapper { width: 100% !important; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 100%; max-width: 680px; box-sizing: border-box; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .container { width: 100%; max-width: 640px; box-sizing: border-box; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: 0.82; }
@@ -1088,18 +1088,50 @@ function renderHtml(
       .intro-text { color: #ffffff; font-size: 15px; line-height: 1.55; font-weight: 600; margin-top: 2px; }
       .intro-empty { margin: 0; color: #d0d0d0; font-size: 13px; }
       .section { padding: 16px 32px; border-top: 1px solid #f0f0f0; }
-      .section h2 { margin: 0 0 20px; font-size: 18px; font-weight: 700; }
-      .section p { margin: 0; font-size: 14px; line-height: 1.6; }
-      .section p + p { margin-top: 12px; }
-      .section ul { margin: 20px 0 20px 18px; padding: 0; font-size: 14px; line-height: 1.6; }
-      .section li { margin-bottom: 8px; }
-      .section .point-source { margin-top: 14px; font-size: 11px; line-height: 1.5; color: #8a8a8a; }
+      .section h2 { margin: 0 0 20px; font-size: 22px; font-weight: 700; line-height: 1.25; }
+      .section p { margin: 0; font-size: 15px; line-height: 1.72; }
+      .section p + p { margin-top: 13px; }
+      .section ul { margin: 20px 0 20px 18px; padding: 0; font-size: 15px; line-height: 1.72; }
+      .section li { margin-bottom: 9px; }
+      .section .point-source { margin-top: 14px; font-size: 12px; line-height: 1.6; color: #8a8a8a; }
       .section p, .section li, .intro-preface p, .intro-text { overflow-wrap: anywhere; word-break: break-word; }
       .image { margin: 20px 0; }
-      .image img { width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }
+      /* adaptive point images */
+      .image img {
+        display: block;
+        border-radius: 12px;
+        border: 1px solid #e6e6e6;
+        width: 100%;
+        height: auto;
+        max-height: 600px;
+        object-fit: contain;
+        background: #f9f9f9;
+      }
+      .image img.is-portrait {
+        width: auto;
+        max-width: 100%;
+        max-height: 580px;
+        margin: 0 auto;
+        object-fit: contain;
+      }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
       .extra-images { margin: 14px 0 0; display: grid; gap: 10px; }
-      .extra-images img { width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }
+      .extra-images img {
+        display: block;
+        border-radius: 12px;
+        border: 1px solid #e6e6e6;
+        width: 100%;
+        height: auto;
+        max-height: 500px;
+        object-fit: contain;
+        background: #f9f9f9;
+      }
+      .extra-images img.is-portrait {
+        width: auto;
+        max-width: 100%;
+        max-height: 500px;
+        margin: 0 auto;
+      }
       .market { background: #0f0f0f; color: #f4f4f4; border-top: 1px solid #171717; }
       .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
       .market-live strong { color: #ffffff; }
@@ -1175,13 +1207,14 @@ function renderHtml(
       .footer-site-url { display: block; color: #ff4202; font-size: 11px; }
       .footer-socials { display: flex; gap: 8px; }
       .footer-social-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #ffffff; border-radius: 10px; border: 1px solid #efefef; }
-      .footer-social-btn img { width: 20px; height: 20px; object-fit: contain; }
+      .footer-social-btn img { width: 20px; height: 20px; object-fit: contain; display: block; }
+      .footer-social-svg { width: 18px; height: 18px; display: none; color: #101010; }
       .footer-copy { margin: 14px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; }
       @media (max-width: 720px) {
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
-        .image img, .extra-images img { width: 92%; margin: 0 auto; }
+        .image img, .extra-images img { max-width: 100%; margin: 0 auto; }
         .section { padding: 18px 20px; }
         .section h2 { font-size: 20px !important; margin: 0 0 16px; }
         .section p { font-size: 16px !important; line-height: 1.75 !important; }
@@ -1241,7 +1274,7 @@ function renderHtml(
         table.container > tbody > tr > td { width: 100% !important; min-width: 0; }
         .toolbar, .container { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
         .toolbar { padding-left: 12px !important; padding-right: 12px !important; }
-        .image img, .extra-images img { width: 90% !important; margin: 0 auto !important; }
+        .image img, .extra-images img { max-width: 100% !important; margin: 0 auto !important; }
         .wrapper { padding: 0 !important; }
         .container { border-radius: 0 !important; border-left: 0; border-right: 0; }
         .section, .intro-wrap, .footer-legal, .footer-dark { padding-left: 14px !important; padding-right: 14px !important; }
@@ -1256,7 +1289,7 @@ function renderHtml(
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
         }
-        .market-price-svg, .image img, .extra-images img {
+        .market-price-svg {
           width: 100% !important;
           max-width: 100% !important;
           height: auto !important;
@@ -1335,9 +1368,18 @@ ${marketHtml}
                       </span>
                     </a>
                     <div class="footer-socials">
-                      <a class="footer-social-btn" href="https://www.instagram.com/globalite.sa/"><img src="${footerInstagramIcon}" alt="Instagram"></a>
-                      <a class="footer-social-btn" href="https://x.com/globalite_sa"><img src="${footerXIcon}" alt="X"></a>
-                      <a class="footer-social-btn" href="https://www.linkedin.com/company/globalite-sa"><img src="${footerLinkedinIcon}" alt="LinkedIn"></a>
+                      <a class="footer-social-btn" href="https://www.instagram.com/globalite.sa/" aria-label="Instagram">
+                        <img src="${footerInstagramIcon}" data-fallbacks="/instagram.jpg|/instagram.jpeg|/instagram.webp" alt="Instagram" onload="const svg=this.nextElementSibling;if(svg){svg.style.display='none';}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.style.display='none';const svg=this.nextElementSibling;if(svg){svg.style.display='block';}}">
+                        <svg class="footer-social-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"></rect><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle><circle cx="17.4" cy="6.6" r="1.3" fill="currentColor"></circle></svg>
+                      </a>
+                      <a class="footer-social-btn" href="https://x.com/globalite_sa" aria-label="X">
+                        <img src="${footerXIcon}" data-fallbacks="" alt="X" onload="const svg=this.nextElementSibling;if(svg){svg.style.display='none';}" onerror="this.style.display='none';const svg=this.nextElementSibling;if(svg){svg.style.display='block';}">
+                        <svg class="footer-social-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.2l4.1 5.5L16.7 4H20l-6.1 7 6.6 9H17l-4.7-6.4L6.8 20H3.5l6.8-7.8z" fill="currentColor"></path></svg>
+                      </a>
+                      <a class="footer-social-btn" href="https://www.linkedin.com/company/globalite-sa" aria-label="LinkedIn">
+                        <img src="${footerLinkedinIcon}" data-fallbacks="/linkedin.jpg|/linkedin.jpeg|/linkedin.webp" alt="LinkedIn" onload="const svg=this.nextElementSibling;if(svg){svg.style.display='none';}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.style.display='none';const svg=this.nextElementSibling;if(svg){svg.style.display='block';}}">
+                        <svg class="footer-social-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="1.7" fill="currentColor"></circle><rect x="4.6" y="9" width="2.8" height="10" fill="currentColor"></rect><path d="M10 9h2.7v1.6c.7-1.1 1.8-1.9 3.5-1.9 3 0 3.8 2 3.8 4.9V19h-2.9v-4.8c0-1.4-.2-2.6-1.8-2.6-1.7 0-2.2 1.1-2.2 2.5V19H10z" fill="currentColor"></path></svg>
+                      </a>
                     </div>
                   </div>
                   <p class="footer-copy">© 2026 Globalite SA. All rights reserved.</p>
@@ -1358,6 +1400,24 @@ ${marketHtml}
         window.setInterval(function () {
           window.location.reload();
         }, refreshSeconds * 1000);
+      })();
+    </script>
+    <script>
+      (function () {
+        function tagOrientation(img) {
+          if (img.naturalHeight > img.naturalWidth) {
+            img.classList.add("is-portrait");
+          }
+        }
+        document.querySelectorAll(".image img, .extra-images img").forEach(function (img) {
+          if (img.complete && img.naturalWidth > 0) {
+            tagOrientation(img);
+          } else {
+            img.addEventListener("load", function () {
+              tagOrientation(img);
+            });
+          }
+        });
       })();
     </script>
   </body>
@@ -2017,12 +2077,13 @@ function resolveExtraImagePaths(point, meta, imageOptions) {
       ? `${r2ImagePrefix}${point.order}.${index}.${r2ImageExt}`
       : `${point.order}.${index}.png`;
 
-    if (imageBaseUrl) {
-      sources.push(`${imageBaseUrl.replace(/\/+$/, "")}/${candidate.replace(/^\/+/, "")}`);
-    } else if (useR2Images) {
+    if (useR2Images) {
       sources.push(`/img/${candidate.replace(/^\/+/, "")}`);
     } else {
       sources.push(`/${candidate.replace(/^\/+/, "")}`);
+      if (imageBaseUrl) {
+        sources.push(`${imageBaseUrl.replace(/\/+$/, "")}/${candidate.replace(/^\/+/, "")}`);
+      }
     }
   }
 
@@ -2081,7 +2142,7 @@ function resolveImageSources(point, meta, imageOptions) {
   };
 
   if (imagePath) {
-    const isExplicitLocal = /^(\/|\.\/|public\/)/i.test(imagePath);
+    const isExplicitLocal = !looksLikeRemoteImageSource(imagePath);
     pushCandidateWithFallbacks(imagePath, isExplicitLocal);
     if (!/\.[a-z0-9]{2,5}$/i.test(imagePath)) {
       ["png", "jpg", "jpeg", "webp"].forEach((ext) =>
@@ -2103,7 +2164,7 @@ function resolveImageSources(point, meta, imageOptions) {
   const baseNames = [`${point.order}`, `image${point.order}`];
   const exts = ["png", "jpg", "jpeg", "webp"];
   baseNames.forEach((base) => {
-    exts.forEach((ext) => pushCandidateWithFallbacks(`${base}.${ext}`));
+    exts.forEach((ext) => pushCandidateWithFallbacks(`${base}.${ext}`, true));
   });
   return candidates;
 }

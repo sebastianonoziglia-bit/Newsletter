@@ -1795,10 +1795,42 @@ def render_html(
       .section li {{ margin-bottom: 8px; }}
       .section .point-source {{ margin-top: 14px; font-size: 11px; line-height: 1.5; color: #8a8a8a; }}
       .image {{ margin: 20px 0; }}
-      .image img {{ width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }}
+      /* adaptive point images */
+      .image img {{
+        display: block;
+        border-radius: 12px;
+        border: 1px solid #e6e6e6;
+        width: 100%;
+        height: auto;
+        max-height: 600px;
+        object-fit: contain;
+        background: #f9f9f9;
+      }}
+      .image img.is-portrait {{
+        width: auto;
+        max-width: 100%;
+        max-height: 580px;
+        margin: 0 auto;
+        object-fit: contain;
+      }}
       .caption {{ font-size: 12px; color: #7a7a7a; margin-top: 6px; }}
       .extra-images {{ margin: 14px 0 0; display: grid; gap: 10px; }}
-      .extra-images img {{ width: 100%; border-radius: 12px; border: 1px solid #e6e6e6; }}
+      .extra-images img {{
+        display: block;
+        border-radius: 12px;
+        border: 1px solid #e6e6e6;
+        width: 100%;
+        height: auto;
+        max-height: 500px;
+        object-fit: contain;
+        background: #f9f9f9;
+      }}
+      .extra-images img.is-portrait {{
+        width: auto;
+        max-width: 100%;
+        max-height: 500px;
+        margin: 0 auto;
+      }}
       .market {{ background: #070707; color: #f4f4f4; border-top: 1px solid #171717; }}
       .market h2 {{ color: #ffffff; margin-bottom: 8px; }}
       .market-intro {{ margin: 0 0 12px; color: #b8b8b8; font-size: 13px; }}
@@ -1856,6 +1888,7 @@ def render_html(
         .toolbar {{ padding: 10px 16px 6px; box-sizing: border-box; }}
         .wrapper {{ padding: 16px 0; }}
         .container {{ width: 100%; max-width: 100%; border-radius: 0; }}
+        .image img, .extra-images img {{ max-width: 100%; margin: 0 auto; }}
         .section {{ padding: 18px 20px; }}
         .hero-content {{ padding: 20px; }}
         .hero-title {{ font-size: 22px; }}
@@ -1952,6 +1985,22 @@ def render_html(
         window.setInterval(function () {{
           window.location.reload();
         }}, refreshSeconds * 1000);
+      }})();
+    </script>
+    <script>
+      (function () {{
+        function tagOrientation(img) {{
+          if (img.naturalHeight > img.naturalWidth) {{
+            img.classList.add('is-portrait');
+          }}
+        }}
+        document.querySelectorAll('.image img, .extra-images img').forEach(function (img) {{
+          if (img.complete && img.naturalWidth > 0) {{
+            tagOrientation(img);
+          }} else {{
+            img.addEventListener('load', function () {{ tagOrientation(img); }});
+          }}
+        }});
       }})();
     </script>
   </body>
