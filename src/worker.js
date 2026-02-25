@@ -931,6 +931,8 @@ function readOwnershipSegments(rows) {
   const mapping = headerIndexMap(rows, ["category", "amount_btc"]);
   const colorIdx = "color" in mapping ? mapping.color : -1;
   const percentIdx = "percent" in mapping ? mapping.percent : -1;
+  const asOfIdx =
+    "as_of_date" in mapping ? mapping.as_of_date : ("as_of" in mapping ? mapping.as_of : -1);
   const showIdx = "show" in mapping ? mapping.show : -1;
   const segments = [];
 
@@ -954,6 +956,7 @@ function readOwnershipSegments(rows) {
       amount_btc: amount,
       percent,
       color: color || "rgb(255, 66, 2)",
+      as_of_date: asOfIdx >= 0 ? renderDateLabel(row[asOfIdx]) : "",
       show: showIdx >= 0 ? normalizeText(row[showIdx]) : "yes",
     });
   }
@@ -1052,9 +1055,6 @@ function renderHtml(
         print-color-adjust: exact;
       }
       table { border-collapse: collapse; }
-      table.wrapper, table.container { width: 100% !important; max-width: 100% !important; table-layout: fixed; }
-      table.wrapper > tbody > tr > td,
-      table.container > tbody > tr > td { width: 100% !important; min-width: 0; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
       .toolbar { width: 100%; max-width: 680px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
@@ -1113,15 +1113,24 @@ function renderHtml(
       .snapshot-card h3 { font-size:.95em; font-weight:500; color:#fff; margin-bottom:10px; }
       .snapshot-caption { margin-top:8px; color:#9a9a9a; font-size:.84em; }
       .snapshot-empty { margin: 0; color: #9a9a9a; font-size: .84em; }
-      .snapshot-distribution-bar { width:100%; height:26px; display:flex; border-radius:8px; overflow:hidden; border:1px solid #2a2a2a; background:#1a1a1a; }
-      .snapshot-distribution-segment { height:100%; min-width:2px; border-right:1px solid rgba(255,255,255,.15); }
-      .snapshot-distribution-segment:last-child { border-right:none; }
-      .snapshot-legend { margin-top:10px; display:grid; grid-template-columns:1fr; gap:6px; }
-      .snapshot-legend-item { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:.84em; color:#e6e6e6; }
-      .snapshot-legend-left { display:inline-flex; align-items:center; gap:8px; }
-      .snapshot-legend-dot { width:10px; height:10px; border-radius:999px; flex:0 0 10px; }
-      .snapshot-legend-name { overflow:hidden; white-space:normal; text-overflow:clip; overflow-wrap:anywhere; color:#e6e6e6; }
-      .snapshot-legend-value { color:#9a9a9a; white-space:normal; text-align:right; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+      .snapshot-ownership-card { background:#0f0f0f; border-color:#262626; padding:16px; overflow:hidden; }
+      .snapshot-own-title { margin:0; font-size:clamp(22px,4.8vw,54px); font-weight:700; line-height:1.08; color:#ffffff; }
+      .snapshot-own-total { margin:10px 0 6px; font-size:clamp(32px,7.5vw,74px); font-weight:700; line-height:1; letter-spacing:.2px; color:#ff4202; }
+      .snapshot-own-subtitle { margin:0 0 12px; color:#a4a4a4; font-size:14px; line-height:1.4; }
+      .snapshot-own-headroom { min-height:108px; display:flex; align-items:flex-start; justify-content:flex-end; }
+      .snapshot-own-callouts { width:min(250px,100%); margin-left:auto; display:grid; gap:10px; }
+      .snapshot-own-callout { border-radius:12px; padding:10px 12px; border:1px solid rgba(255,255,255,.18); box-shadow:0 8px 18px rgba(0,0,0,.24); }
+      .snapshot-own-callout-title { color:#ffffff; font-size:11px; font-weight:700; line-height:1.2; text-transform:uppercase; letter-spacing:.4px; opacity:.96; }
+      .snapshot-own-callout-value { margin-top:3px; color:#ffffff; font-size:18px; font-weight:700; line-height:1.15; }
+      .snapshot-own-callout-pct { margin-top:2px; color:rgba(255,255,255,.92); font-size:13px; font-weight:600; line-height:1.2; }
+      .snapshot-own-bar { margin-top:14px; height:160px; width:100%; border-radius:14px; border:1px solid #2d2d2d; overflow:hidden; display:flex; background:#1a1a1a; }
+      .snapshot-own-segment { position:relative; min-width:2px; display:flex; align-items:flex-end; border-right:2px solid rgba(255,255,255,.25); }
+      .snapshot-own-segment:last-child { border-right:none; }
+      .snapshot-own-segment-label { width:100%; padding:10px 10px 12px; color:#ffffff; text-shadow:0 1px 1px rgba(0,0,0,.45); }
+      .snapshot-own-segment-name { display:block; font-size:11px; font-weight:700; line-height:1.15; letter-spacing:.35px; text-transform:uppercase; }
+      .snapshot-own-segment-value { display:block; margin-top:3px; font-size:18px; font-weight:700; line-height:1.1; white-space:nowrap; }
+      .snapshot-own-segment-pct { display:block; margin-top:2px; font-size:13px; font-weight:600; line-height:1.1; opacity:.95; white-space:nowrap; }
+      .snapshot-own-segment.is-compact .snapshot-own-segment-label { display:none; }
       .snapshot-circ-value { font-size:1.55em; color:#fff; font-weight:500; margin-bottom:10px; font-variant-numeric:tabular-nums; }
       .snapshot-circ-bar { width:100%; height:18px; border-radius:999px; background:#1a1a1a; overflow:hidden; border:1px solid #2a2a2a; }
       .snapshot-circ-fill { height:100%; background:linear-gradient(90deg,#ff4202 0%,#ff8f60 100%); width:0%; }
@@ -1172,6 +1181,7 @@ function renderHtml(
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
+        .image img, .extra-images img { width: 92%; margin: 0 auto; }
         .section { padding: 18px 20px; }
         .section h2 { font-size: 20px !important; margin: 0 0 16px; }
         .section p { font-size: 16px !important; line-height: 1.75 !important; }
@@ -1188,6 +1198,16 @@ function renderHtml(
         .intro-item { grid-template-columns: 34px 1fr; gap: 10px; }
         .intro-num { width: 34px; height: 34px; font-size: 13px; border-radius: 10px; }
         .intro-text { font-size: 15px !important; line-height: 1.7 !important; }
+        .snapshot-own-headroom { min-height: 0; margin-top: 2px; }
+        .snapshot-own-callouts { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .snapshot-own-callout { padding: 8px 9px; border-radius: 10px; }
+        .snapshot-own-callout-value { font-size: 15px; }
+        .snapshot-own-callout-pct { font-size: 12px; }
+        .snapshot-own-bar { height: 132px; margin-top: 10px; }
+        .snapshot-own-segment-label { padding: 8px 8px 9px; }
+        .snapshot-own-segment-name { font-size: 10px; }
+        .snapshot-own-segment-value { font-size: 14px; }
+        .snapshot-own-segment-pct { font-size: 11px; }
         .snapshot-treas-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .snapshot-treas-table { min-width: 0; width: 100%; table-layout: fixed; }
         .snapshot-treas-table th, .snapshot-treas-table td { white-space: normal !important; overflow-wrap: anywhere; }
@@ -1216,8 +1236,12 @@ function renderHtml(
       }
       @media (max-width: 932px) and (orientation: landscape) {
         html, body { width: 100% !important; max-width: 100% !important; overflow-x: hidden !important; }
+        table.wrapper, table.container { width: 100% !important; max-width: 100% !important; table-layout: fixed; }
+        table.wrapper > tbody > tr > td,
+        table.container > tbody > tr > td { width: 100% !important; min-width: 0; }
         .toolbar, .container { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
         .toolbar { padding-left: 12px !important; padding-right: 12px !important; }
+        .image img, .extra-images img { width: 90% !important; margin: 0 auto !important; }
         .wrapper { padding: 0 !important; }
         .container { border-radius: 0 !important; border-left: 0; border-right: 0; }
         .section, .intro-wrap, .footer-legal, .footer-dark { padding-left: 14px !important; padding-right: 14px !important; }
@@ -1729,7 +1753,8 @@ function renderSnapshotSection(data) {
   const ownershipSetting = {
     show: !settings.ownership || settings.ownership.show !== false,
     title:
-      (settings.ownership && normalizeText(settings.ownership.title)) || "Supply Ownership",
+      (settings.ownership && normalizeText(settings.ownership.title)) ||
+      "Bitcoin Supply Ownership",
     top_n: toPositiveInt(settings.ownership && settings.ownership.top_n, 8),
   };
   const circulatingSetting = {
@@ -1751,45 +1776,82 @@ function renderSnapshotSection(data) {
   };
 
   if (ownershipSetting.show && data.distribution && data.distribution.length) {
-    const segments = data.distribution
+    const selectedRows = data.distribution
       .filter((row) => isRowVisible(row.show))
       .slice(0, ownershipSetting.top_n || 8);
-    const total = segments.reduce((sum, row) => sum + Number(row.amount_btc || 0), 0);
+    const totalAmount = selectedRows.reduce((sum, row) => sum + Number(row.amount_btc || 0), 0);
+    let segments = selectedRows.map((row) => {
+      const amount = Math.max(0, Number(row.amount_btc || 0));
+      const rawPercent =
+        row.percent && row.percent > 0
+          ? Number(row.percent)
+          : totalAmount > 0
+            ? (amount / totalAmount) * 100
+            : 0;
+      return {
+        category: normalizeText(row.category),
+        amount_btc: amount,
+        percent: Math.max(0, rawPercent),
+        color: safeColor(row.color),
+        as_of_date: normalizeText(row.as_of_date),
+      };
+    });
+    const percentSum = segments.reduce((sum, row) => sum + row.percent, 0);
+    if (percentSum > 0) {
+      segments = segments.map((row) => ({ ...row, percent: (row.percent / percentSum) * 100 }));
+    } else if (segments.length > 0) {
+      const equalPct = 100 / segments.length;
+      segments = segments.map((row) => ({ ...row, percent: equalPct }));
+    }
+
+    const maxSupply = Number((data.circulating && data.circulating.max_supply_btc) || 0);
+    const totalSupply = maxSupply > 0 ? maxSupply : totalAmount > 0 ? totalAmount : 21000000;
+    const asOfRaw = normalizeText(
+      (data.circulating && data.circulating.as_of_date) ||
+        (segments.find((row) => normalizeText(row.as_of_date)) || {}).as_of_date ||
+        ""
+    );
+    const subtitle = asOfRaw
+      ? `Ownership Breakdown (as of ${formatMonthYear(asOfRaw)})`
+      : "Ownership Breakdown";
+
     const bar = segments
-      .map((row) => {
-        const pct =
-          row.percent && row.percent > 0
-            ? Number(row.percent)
-            : total > 0
-              ? (Number(row.amount_btc || 0) / total) * 100
-              : 0;
-        return `<div class="snapshot-distribution-segment" style="width:${pct.toFixed(4)}%;background:${escapeHtml(safeColor(row.color), true)}" title="${escapeHtml(`${row.category || ""}: ${pct.toFixed(1)}%`, true)}"></div>`;
+      .map((row, index) => {
+        const showLabel = index === 0 || row.percent >= 8.5;
+        const labelHtml = showLabel
+          ? `<div class="snapshot-own-segment-label">
+        <span class="snapshot-own-segment-name">${escapeHtml(cleanEntityLabel(row.category, 22).toUpperCase())}</span>
+        <span class="snapshot-own-segment-value">${escapeHtml(formatBtcCompact(row.amount_btc))}</span>
+        <span class="snapshot-own-segment-pct">${escapeHtml(formatPercent(row.percent))}</span>
+      </div>`
+          : "";
+        const title = `${row.category}: ${formatBtcCompact(row.amount_btc)} (${formatPercent(row.percent)})`;
+        return `<div class="snapshot-own-segment${showLabel ? "" : " is-compact"}" style="width:${row.percent.toFixed(4)}%;background:${escapeHtml(row.color, true)}" title="${escapeHtml(title, true)}">${labelHtml}</div>`;
       })
       .join("");
-    const legend = segments
-      .map((row) => {
-        const pct =
-          row.percent && row.percent > 0
-            ? Number(row.percent)
-            : total > 0
-              ? (Number(row.amount_btc || 0) / total) * 100
-              : 0;
-        const btc = Number(row.amount_btc || 0);
-        const btcFmt = btc >= 1e6 ? `${(btc / 1e6).toFixed(2)}M` : btc >= 1e3 ? `${(btc / 1e3).toFixed(0)}K` : btc.toFixed(0);
-        return `<div class="snapshot-legend-item">
-        <span class="snapshot-legend-left">
-          <span class="snapshot-legend-dot" style="background:${escapeHtml(safeColor(row.color), true)}"></span>
-          <span class="snapshot-legend-name">${escapeHtml(row.category || "")}</span>
-        </span>
-        <span class="snapshot-legend-value">${escapeHtml(btcFmt)} BTC (${escapeHtml(pct.toFixed(1))}%)</span>
-      </div>`;
-      })
+
+    let calloutRows = segments
+      .filter((row, index) => index > 0 && row.percent <= 8.5)
+      .slice(0, 4);
+    if (!calloutRows.length) {
+      calloutRows = segments.slice(1, 5);
+    }
+    const callouts = calloutRows
+      .map(
+        (row) => `<div class="snapshot-own-callout" style="background:${escapeHtml(row.color, true)};">
+      <div class="snapshot-own-callout-title">${escapeHtml(cleanEntityLabel(row.category, 26).toUpperCase())}</div>
+      <div class="snapshot-own-callout-value">${escapeHtml(formatBtcCompact(row.amount_btc))}</div>
+      <div class="snapshot-own-callout-pct">${escapeHtml(formatPercent(row.percent))}</div>
+    </div>`
+      )
       .join("");
-    cards.push(`<article class="snapshot-card">
-      <h3>${escapeHtml(ownershipSetting.title)}</h3>
-      <div class="snapshot-distribution-bar">${bar}</div>
-      <div class="snapshot-legend">${legend}</div>
-      <p class="snapshot-caption">Largest holders shown first from left to right.</p>
+
+    cards.push(`<article class="snapshot-card snapshot-ownership-card">
+      <h3 class="snapshot-own-title">${escapeHtml(ownershipSetting.title)}</h3>
+      <div class="snapshot-own-total">${escapeHtml(formatBtcInteger(totalSupply))} BTC</div>
+      <p class="snapshot-own-subtitle">${escapeHtml(subtitle)}</p>
+      <div class="snapshot-own-headroom">${callouts ? `<div class="snapshot-own-callouts">${callouts}</div>` : ""}</div>
+      <div class="snapshot-own-bar">${bar}</div>
     </article>`);
   }
 
@@ -2365,6 +2427,14 @@ function formatBtcCompact(value) {
 function formatPercent(value) {
   const rendered = Number(value).toFixed(1).replace(/\.0$/, "");
   return `${rendered}%`;
+}
+
+function formatMonthYear(value) {
+  const parsed = parseDateValue(value);
+  if (parsed) {
+    return parsed.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  }
+  return normalizeText(value);
 }
 
 function escapeHtml(value, escapeQuotes = false) {
