@@ -1756,6 +1756,11 @@ function renderSnapshotSection(data) {
       (settings.ownership && normalizeText(settings.ownership.title)) ||
       "Bitcoin Supply Ownership",
     top_n: toPositiveInt(settings.ownership && settings.ownership.top_n, 8),
+    bar_label_count: toPositiveInt(settings.ownership && settings.ownership.bar_label_count, 4),
+    bar_label_min_pct: parseNumber(
+      settings.ownership && settings.ownership.bar_label_min_pct,
+      6
+    ),
   };
   const circulatingSetting = {
     show: !settings.circulating_btc || settings.circulating_btc.show !== false,
@@ -1815,9 +1820,14 @@ function renderSnapshotSection(data) {
       ? `Ownership Breakdown (as of ${formatMonthYear(asOfRaw)})`
       : "Ownership Breakdown";
 
+    const labelCount = Math.max(1, ownershipSetting.bar_label_count || 4);
+    const labelMinPct = Math.max(0, ownershipSetting.bar_label_min_pct || 6);
+    const shouldShowInBar = (row, index) =>
+      index === 0 || index < labelCount || row.percent >= labelMinPct;
+
     const bar = segments
       .map((row, index) => {
-        const showLabel = index === 0 || row.percent >= 8.5;
+        const showLabel = shouldShowInBar(row, index);
         const labelHtml = showLabel
           ? `<div class="snapshot-own-segment-label">
         <span class="snapshot-own-segment-name">${escapeHtml(cleanEntityLabel(row.category, 22).toUpperCase())}</span>
@@ -1830,11 +1840,9 @@ function renderSnapshotSection(data) {
       })
       .join("");
 
-    let calloutRows = segments
-      .filter((row, index) => index > 0 && row.percent <= 8.5)
-      .slice(0, 4);
+    let calloutRows = segments.filter((row, index) => index > 0 && !shouldShowInBar(row, index)).slice(0, 4);
     if (!calloutRows.length) {
-      calloutRows = segments.slice(1, 5);
+      calloutRows = segments.slice(labelCount, labelCount + 4);
     }
     const callouts = calloutRows
       .map(
