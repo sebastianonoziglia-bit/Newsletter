@@ -1635,29 +1635,48 @@ def resolve_extra_image_paths(
     return sources
 
 
-def render_image_block(point: Point, image_src: str) -> str:
+def render_image_block(point: Point, image_src: str, source_text: str = "") -> str:
     if not image_src:
         return ""
     caption = point.image_caption or point.title
+    source_html = (
+        f'  <p class="point-source image-source">{html.escape(source_text)}</p>\n'
+        if normalize_text(source_text)
+        else ""
+    )
     return (
         '<div class="image">\n'
         f'  <img src="{html.escape(image_src)}" alt="{html.escape(point.title)}">\n'
         f'  <div class="caption">{html.escape(caption)}</div>\n'
+        f"{source_html}"
         "</div>"
     )
 
 
-def render_extra_images_block(point: Point, image_sources: list[str]) -> str:
+def render_extra_images_block(
+    point: Point, image_sources: list[str], source_by_key: dict[str, str] | None = None
+) -> str:
     if not image_sources:
         return ""
+    source_by_key = source_by_key or {}
     image_tags = "\n".join(
-        f'  <img src="{html.escape(src)}" alt="{html.escape(point.title)} - extra {index}">'
+        (
+            f'  <div class="extra-image-item">\n'
+            f'    <img src="{html.escape(src)}" alt="{html.escape(point.title)} - extra {index}">\n'
+            + (
+                f'    <p class="point-source image-source">{html.escape(source_by_key.get(f"{point.order}.{index}", ""))}</p>\n'
+                if source_by_key.get(f"{point.order}.{index}", "")
+                else ""
+            )
+            + "  </div>"
+        )
         for index, src in enumerate(image_sources, start=1)
     )
     return '<div class="extra-images">\n' + image_tags + "\n</div>"
 
 
 def render_point(point: Point, meta: dict[str, str], output_dir: Path) -> str:
+    source_data = parse_point_source_data(point.source)
     parts = [
         "            <tr>",
         '              <td class="section">',
@@ -1665,17 +1684,20 @@ def render_point(point: Point, meta: dict[str, str], output_dir: Path) -> str:
     ]
 
     image_src = resolve_image_path(point, meta, output_dir)
-    image_block = render_image_block(point, image_src)
+    main_source = source_data["by_key"].get(str(point.order), "")
+    image_block = render_image_block(point, image_src, main_source)
     if image_block:
         parts.append(indent_block(image_block, 16))
 
     extra_image_sources = resolve_extra_image_paths(point, meta, output_dir)
-    extra_images_block = render_extra_images_block(point, extra_image_sources)
+    extra_images_block = render_extra_images_block(
+        point, extra_image_sources, source_data["by_key"]
+    )
 
     parts.append(indent_block(render_content_blocks(point.content), 16))
-    if point.source:
+    if source_data["unscoped_text"]:
         parts.append(
-            f'                <p class="point-source">{html.escape(point.source)}</p>'
+            f'                <p class="point-source">{html.escape(source_data["unscoped_text"])}</p>'
         )
     if extra_images_block:
         parts.append(indent_block(extra_images_block, 16))
@@ -1686,6 +1708,35 @@ def render_point(point: Point, meta: dict[str, str], output_dir: Path) -> str:
         ]
     )
     return "\n".join(parts) + "\n"
+
+
+def parse_point_source_data(raw_source: str) -> dict[str, object]:
+    by_key: dict[str, str] = {}
+    unscoped_lines: list[str] = []
+    text = normalize_text(raw_source)
+    if not text:
+        return {"by_key": by_key, "unscoped_text": ""}
+
+    for line in [normalize_text(item) for item in text.splitlines() if normalize_text(item)]:
+        match = re.match(r"^(\d+(?:\.\d+)?)\s*:\s*(.+)$", line)
+        if match:
+            key = normalize_source_key(match.group(1))
+            value = normalize_text(match.group(2))
+            if key and value:
+                by_key[key] = value
+                continue
+        unscoped_lines.append(line)
+
+    return {"by_key": by_key, "unscoped_text": " ".join(unscoped_lines)}
+
+
+def normalize_source_key(raw_key: str) -> str:
+    key = normalize_text(raw_key)
+    if not key:
+        return ""
+    if "." in key:
+        return ".".join(str(int(part)) for part in key.split("."))
+    return str(int(key))
 
 
 def indent_block(text: str, spaces: int) -> str:
@@ -1795,6 +1846,7 @@ def render_html(
       .section ul {{ margin: 20px 0 20px 18px; padding: 0; font-size: 14px; line-height: 1.6; }}
       .section li {{ margin-bottom: 8px; }}
       .section .point-source {{ margin-top: 14px; font-size: 11px; line-height: 1.5; color: #8a8a8a; }}
+      .section .point-source.image-source {{ margin-top: 6px; font-size: 10px; line-height: 1.4; }}
       .image {{ margin: 20px 0; width: 100%; box-sizing: border-box; }}
       .image img {{
         display: block;
@@ -1821,6 +1873,7 @@ def render_html(
       }}
       .caption {{ font-size: 12px; color: #7a7a7a; margin-top: 6px; }}
       .extra-images {{ margin: 14px 0 24px; display: grid; gap: 10px; }}
+      .extra-image-item {{ display: block; }}
       .extra-images img {{
         display: block;
         width: 100%;

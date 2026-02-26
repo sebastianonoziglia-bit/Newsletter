@@ -1095,6 +1095,7 @@ function renderHtml(
       .section ul { margin: 20px 0 20px 18px; padding: 0; font-size: 15px; line-height: 1.72; }
       .section li { margin-bottom: 9px; }
       .section .point-source { margin-top: 14px; font-size: 12px; line-height: 1.6; color: #8a8a8a; }
+      .section .point-source.image-source { margin-top: 6px; font-size: 11px; line-height: 1.5; }
       .section p, .section li, .intro-preface p, .intro-text { overflow-wrap: anywhere; word-break: break-word; }
       .image { margin: 20px 0; width: 100%; box-sizing: border-box; }
       .image img {
@@ -1122,6 +1123,7 @@ function renderHtml(
       }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
       .extra-images { margin: 14px 0 24px; display: grid; gap: 10px; }
+      .extra-image-item { display: block; }
       .extra-images img {
         display: block;
         width: 100%;
@@ -1525,10 +1527,12 @@ function parseIntroContent(rawContent) {
 }
 
 function renderPoint(point, meta, imageOptions, showPointSources = false) {
+  const sourceData = parsePointSourceData(point.source);
   const imageSources = resolveImageSources(point, meta, imageOptions);
-  const imageBlock = renderImageBlock(point, imageSources);
+  const mainSourceText = sourceData.byKey.get(String(point.order)) || "";
+  const imageBlock = renderImageBlock(point, imageSources, mainSourceText);
   const extraImageSources = resolveExtraImagePaths(point, meta, imageOptions);
-  const extraImagesBlock = renderExtraImagesBlock(point, extraImageSources);
+  const extraImagesBlock = renderExtraImagesBlock(point, extraImageSources, sourceData.byKey);
 
   let output = "            <tr>\n";
   output += "              <td class=\"section\">\n";
@@ -1537,8 +1541,8 @@ function renderPoint(point, meta, imageOptions, showPointSources = false) {
     output += `${indentBlock(imageBlock, 16)}\n`;
   }
   output += `${indentBlock(renderContentBlocks(point.content), 16)}\n`;
-  if (showPointSources && point.source) {
-    output += `                <p class=\"point-source\">${escapeHtml(point.source)}</p>\n`;
+  if (showPointSources && sourceData.unscopedText) {
+    output += `                <p class=\"point-source\">${escapeHtml(sourceData.unscopedText)}</p>\n`;
   }
   if (extraImagesBlock) {
     output += `${indentBlock(extraImagesBlock, 16)}\n`;
@@ -1548,32 +1552,84 @@ function renderPoint(point, meta, imageOptions, showPointSources = false) {
   return output;
 }
 
-function renderImageBlock(point, imageSources) {
+function renderImageBlock(point, imageSources, sourceText = "") {
   const primarySrc = imageSources[0] || "";
   if (!primarySrc) {
     return "";
   }
   const fallbacks = imageSources.slice(1).join("|");
   const caption = point.image_caption || point.title;
+  const sourceHtml = sourceText
+    ? `  <p class="point-source image-source">${escapeHtml(sourceText)}</p>\n`
+    : "";
   return (
     '<div class="image">\n' +
     `  <img src="${escapeHtml(primarySrc, true)}" data-fallbacks="${escapeHtml(fallbacks, true)}" alt="${escapeHtml(point.title)}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.closest('.image').style.display='none';}">\n` +
     `  <div class="caption">${escapeHtml(caption)}</div>\n` +
+    sourceHtml +
     "</div>"
   );
 }
 
-function renderExtraImagesBlock(point, imageSources) {
+function renderExtraImagesBlock(point, imageSources, sourceByKey = new Map()) {
   if (!imageSources.length) {
     return "";
   }
   const imageTags = imageSources
     .map(
-      (src, index) =>
-        `  <img src="${escapeHtml(src, true)}" alt="${escapeHtml(point.title)} - extra ${index + 1}" onerror="this.style.display='none'">`
+      (src, index) => {
+        const key = `${point.order}.${index + 1}`;
+        const sourceText = sourceByKey.get(key) || "";
+        const sourceHtml = sourceText
+          ? `\n    <p class="point-source image-source">${escapeHtml(sourceText)}</p>`
+          : "";
+        return `  <div class="extra-image-item">\n    <img src="${escapeHtml(src, true)}" alt="${escapeHtml(point.title)} - extra ${index + 1}" onerror="this.closest('.extra-image-item').style.display='none'">${sourceHtml}\n  </div>`;
+      }
     )
     .join("\n");
   return '<div class="extra-images">\n' + imageTags + "\n</div>";
+}
+
+function parsePointSourceData(rawSource) {
+  const byKey = new Map();
+  const unscoped = [];
+  const text = normalizeText(rawSource);
+  if (!text) {
+    return { byKey, unscopedText: "" };
+  }
+
+  text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const match = line.match(/^(\d+(?:\.\d+)?)\s*:\s*(.+)$/);
+      if (match) {
+        const key = normalizeSourceKey(match[1]);
+        const value = normalizeText(match[2]);
+        if (key && value) {
+          byKey.set(key, value);
+          return;
+        }
+      }
+      unscoped.push(line);
+    });
+
+  return { byKey, unscopedText: unscoped.join(" ") };
+}
+
+function normalizeSourceKey(rawKey) {
+  const key = normalizeText(rawKey);
+  if (!key) {
+    return "";
+  }
+  if (key.includes(".")) {
+    return key
+      .split(".")
+      .map((part) => String(Number(part)))
+      .join(".");
+  }
+  return String(Number(key));
 }
 
 function formatUsd(value) {
