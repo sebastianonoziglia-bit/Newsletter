@@ -1661,7 +1661,7 @@ def render_point(point: Point, meta: dict[str, str], output_dir: Path) -> str:
     parts = [
         "            <tr>",
         '              <td class="section">',
-        f"                <h2>{point.order}. {html.escape(point.title)}</h2>",
+        f"                <h2 class=\"point-title\">{point.order}. {html.escape(point.title)}</h2>",
     ]
 
     image_src = resolve_image_path(point, meta, output_dir)
@@ -1789,6 +1789,7 @@ def render_html(
       .hero-badge {{ display: inline-block; font-size: 11px; color: #ffcfb8; background: rgba(255,66,2,0.25); border: 1px solid rgba(255,66,2,0.45); border-radius: 999px; padding: 5px 12px; }}
       .section {{ padding: 16px 32px; border-top: 1px solid #f0f0f0; }}
       .section h2 {{ margin: 0 0 20px; font-size: 18px; font-weight: 700; }}
+      .section h2.point-title {{ font-size: 28px; line-height: 1.2; color: #ff4202; }}
       .section p {{ margin: 0; font-size: 14px; line-height: 1.6; }}
       .section p + p {{ margin-top: 12px; }}
       .section ul {{ margin: 20px 0 20px 18px; padding: 0; font-size: 14px; line-height: 1.6; }}
@@ -1819,7 +1820,7 @@ def render_html(
         height: auto;
       }}
       .caption {{ font-size: 12px; color: #7a7a7a; margin-top: 6px; }}
-      .extra-images {{ margin: 14px 0 0; display: grid; gap: 10px; }}
+      .extra-images {{ margin: 14px 0 24px; display: grid; gap: 10px; }}
       .extra-images img {{
         display: block;
         width: 100%;
@@ -1902,6 +1903,7 @@ def render_html(
         .container {{ width: 100%; max-width: 100%; border-radius: 0; }}
         .image img, .extra-images img {{ max-width: 100%; margin: 0 auto; }}
         .section {{ padding: 18px 20px; }}
+        .section h2.point-title {{ font-size: 24px; color: #ff4202; }}
         .hero-content {{ padding: 20px; }}
         .hero-title {{ font-size: 22px; }}
         .market-grid {{ grid-template-columns: 1fr; }}

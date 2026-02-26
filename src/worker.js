@@ -1089,6 +1089,7 @@ function renderHtml(
       .intro-empty { margin: 0; color: #d0d0d0; font-size: 13px; }
       .section { padding: 16px 32px; border-top: 1px solid #f0f0f0; }
       .section h2 { margin: 0 0 20px; font-size: 22px; font-weight: 700; line-height: 1.25; }
+      .section h2.point-title { font-size: 28px; line-height: 1.2; color: #ff4202; }
       .section p { margin: 0; font-size: 15px; line-height: 1.72; }
       .section p + p { margin-top: 13px; }
       .section ul { margin: 20px 0 20px 18px; padding: 0; font-size: 15px; line-height: 1.72; }
@@ -1120,7 +1121,7 @@ function renderHtml(
         height: auto;
       }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
-      .extra-images { margin: 14px 0 0; display: grid; gap: 10px; }
+      .extra-images { margin: 14px 0 24px; display: grid; gap: 10px; }
       .extra-images img {
         display: block;
         width: 100%;
@@ -1229,6 +1230,7 @@ function renderHtml(
         .image img, .extra-images img { max-width: 100%; margin: 0 auto; }
         .section { padding: 18px 20px; }
         .section h2 { font-size: 20px !important; margin: 0 0 16px; }
+        .section h2.point-title { font-size: 24px !important; color: #ff4202; }
         .section p { font-size: 16px !important; line-height: 1.75 !important; }
         .section p + p { margin-top: 14px; }
         .section ul { font-size: 16px; line-height: 1.75; margin: 16px 0 20px 18px; }
@@ -1530,7 +1532,7 @@ function renderPoint(point, meta, imageOptions, showPointSources = false) {
 
   let output = "            <tr>\n";
   output += "              <td class=\"section\">\n";
-  output += `                <h2>${point.order}. ${escapeHtml(point.title)}</h2>\n`;
+  output += `                <h2 class="point-title">${point.order}. ${escapeHtml(point.title)}</h2>\n`;
   if (imageBlock) {
     output += `${indentBlock(imageBlock, 16)}\n`;
   }
