@@ -1072,11 +1072,11 @@ function renderHtml(
       .hero-title { margin: 0 0 6px; font-size: 28px; font-weight: 700; color: #ffffff; }
       .hero-subtitle { margin: 0 0 14px; color: rgba(255,255,255,0.6); font-size: 14px; }
       .hero-badge { display: inline-block; font-size: 11px; color: #ffcfb8; background: rgba(255,66,2,0.25); border: 1px solid rgba(255,66,2,0.45); border-radius: 999px; padding: 5px 12px; }
-      .intro-wrap { padding: 16px 32px 8px; border-top: 1px solid #f0f0f0; background: #ffffff; }
-      .intro-preface { margin: 0 0 20px; }
-      .intro-preface p { margin: 0; color: #1f1f1f; font-size: 14px; line-height: 1.7; }
-      .intro-preface p + p { margin-top: 10px; }
-      .intro-card { position: relative; overflow: hidden; border: 1px solid #232323; border-radius: 14px; background: #0f0f0f; }
+      .intro-wrap { padding: 20px 32px 30px; border-top: 1px solid #f0f0f0; background: #ffffff; }
+      .intro-preface { margin: 0 0 34px; }
+      .intro-preface p { margin: 0; color: #1f1f1f; font-size: 28px; line-height: 1.45; font-weight: 500; }
+      .intro-preface p + p { margin-top: 16px; }
+      .intro-card { position: relative; overflow: hidden; border: 1px solid #232323; border-radius: 14px; background: #0f0f0f; margin-bottom: 6px; }
       .intro-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.34; }
       .intro-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0.36) 0%, rgba(10,10,10,0.9) 100%); }
       .intro-content { position: relative; z-index: 2; padding: 20px 22px; max-width: 560px; margin: 0 auto; }
@@ -1236,9 +1236,9 @@ function renderHtml(
         .section ul { font-size: 16px; line-height: 1.75; margin: 16px 0 20px 18px; }
         .section li { font-size: 16px !important; line-height: 1.75 !important; margin-bottom: 10px; }
         .section .point-source { font-size: 13px; line-height: 1.7; }
-        .intro-wrap { padding: 18px 20px 8px; }
-        .intro-preface { margin-bottom: 22px; }
-        .intro-preface p { font-size: 16px; line-height: 1.75; }
+        .intro-wrap { padding: 18px 20px 20px; }
+        .intro-preface { margin-bottom: 24px; }
+        .intro-preface p { font-size: 18px; line-height: 1.65; }
         .intro-content { padding: 18px 16px; max-width: 560px; margin: 0 auto; }
         .intro-title { font-size: 22px; }
         .intro-list { gap: 13px; }
