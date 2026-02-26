@@ -166,6 +166,7 @@ class OwnershipSegment:
     amount_btc: float
     percent: float
     color: str
+    as_of_date: str
 
 
 @dataclass
@@ -697,13 +698,14 @@ def create_template_workbook(path: Path, force: bool = False) -> None:
     )
 
     distribution = wb.create_sheet("Distribution")
-    distribution.append(["category", "amount_btc", "percent", "color", "show"])
+    distribution.append(["category", "amount_btc", "percent", "color", "date", "show"])
     distribution.append(
         [
             "Individuals",
             13660000,
             65.1,
             "rgb(255, 66, 2)",
+            "2025-12-25",
             "yes",
         ]
     )
@@ -713,6 +715,7 @@ def create_template_workbook(path: Path, force: bool = False) -> None:
             1490000,
             7.1,
             "rgb(255, 140, 90)",
+            "2025-12-25",
             "yes",
         ]
     )
@@ -866,6 +869,13 @@ def render_date_label(value: object) -> str:
     parsed = parse_date_value(value)
     if parsed is not None:
         return parsed.strftime("%Y-%m-%d")
+    return normalize_text(value)
+
+
+def format_as_of_date(value: object) -> str:
+    parsed = parse_date_value(value)
+    if parsed is not None:
+        return parsed.strftime("%d %b %Y")
     return normalize_text(value)
 
 
@@ -1140,6 +1150,7 @@ def read_ownership_segments(
         ["category", "amount_btc"],
         "Distribution",
     )
+    as_of_index = mapping.get("as_of_date", mapping.get("date", mapping.get("as_of", -1)))
     segments: list[OwnershipSegment] = []
     for row in distribution_sheet.iter_rows(min_row=2, values_only=True):
         if not row_enabled(row, mapping):
@@ -1172,6 +1183,9 @@ def read_ownership_segments(
                 amount_btc=amount_btc,
                 percent=percent,
                 color=color,
+                as_of_date=normalize_text(row_value(row, as_of_index))
+                if as_of_index >= 0
+                else "",
             )
         )
 
@@ -1210,17 +1224,33 @@ def render_content_blocks(raw: str) -> str:
             continue
 
         if line.startswith("- ") or line.startswith("* "):
-            item = emphasize_numbers(line[2:].strip())
+            item = emphasize_lead_label_and_numbers(line[2:].strip())
             if not list_open:
                 blocks.append("<ul>")
                 list_open = True
             blocks.append(f"<li>{item}</li>")
         else:
             close_list()
-            blocks.append(f"<p>{emphasize_numbers(line)}</p>")
+            blocks.append(f"<p>{emphasize_lead_label_and_numbers(line)}</p>")
 
     close_list()
     return "\n".join(blocks)
+
+
+def emphasize_lead_label_and_numbers(text: str) -> str:
+    normalized = normalize_text(text)
+    if not normalized:
+        return ""
+    if re.match(r"^https?://", normalized, flags=re.IGNORECASE):
+        return emphasize_numbers(normalized)
+    label_match = re.match(r"^([^:\n]{1,120}:)(\s*.*)?$", normalized)
+    if not label_match:
+        return emphasize_numbers(normalized)
+    lead = f"<strong>{html.escape(label_match.group(1))}</strong>"
+    rest = normalize_text(label_match.group(2) or "")
+    if not rest:
+        return lead
+    return f"{lead} {emphasize_numbers(rest)}"
 
 
 def emphasize_numbers(text: str) -> str:
@@ -1436,6 +1466,21 @@ def render_ownership_card(
     if not ownership_segments:
         return '<p class="market-empty">No ownership rows found.</p>'
 
+    total_supply = sum(max(0.0, segment.amount_btc) for segment in ownership_segments)
+    as_of_raw = next(
+        (
+            normalize_text(segment.as_of_date)
+            for segment in ownership_segments
+            if normalize_text(segment.as_of_date)
+        ),
+        "",
+    )
+    as_of_html = (
+        f'<p class="market-subnote">Ownership Breakdown (as of {html.escape(format_as_of_date(as_of_raw))})</p>'
+        if as_of_raw
+        else '<p class="market-subnote">Ownership Breakdown</p>'
+    )
+
     bar_segments = "".join(
         (
             f'<div class="market-own-segment" style="width:{max(0.0, segment.percent):.6f}%;background:{html.escape(segment.color)};" '
@@ -1456,7 +1501,9 @@ def render_ownership_card(
     )
 
     return (
-        '<div class="market-own-bar">'
+        f'<div class="market-own-total">{html.escape(format_btc_integer(total_supply))} BTC</div>'
+        + as_of_html
+        + '<div class="market-own-bar">'
         + bar_segments
         + "</div>"
         + '<div class="market-own-legend">'
@@ -1926,7 +1973,8 @@ def render_html(
       .market-progress-track {{ width: 100%; height: 14px; border: 1px solid #2a2a2a; border-radius: 999px; background: #0c0c0c; overflow: hidden; }}
       .market-progress-fill {{ height: 100%; background: linear-gradient(90deg, #ff4202 0%, #ff8b61 100%); }}
       .market-own-card {{ grid-column: 1 / -1; }}
-      .market-own-bar {{ width: 100%; height: 18px; border: 1px solid #2a2a2a; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 10px; }}
+      .market-own-total {{ margin: 0; color: #ff4202; font-size: 22px; font-weight: 700; line-height: 1.15; }}
+      .market-own-bar {{ width: 100%; height: 18px; border: 1px solid #2a2a2a; border-radius: 999px; overflow: hidden; display: flex; margin: 10px 0; }}
       .market-own-segment {{ height: 100%; min-width: 2px; }}
       .market-own-legend {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }}
       .market-own-item {{ display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 6px; }}

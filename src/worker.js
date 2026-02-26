@@ -932,7 +932,9 @@ function readOwnershipSegments(rows) {
   const colorIdx = "color" in mapping ? mapping.color : -1;
   const percentIdx = "percent" in mapping ? mapping.percent : -1;
   const asOfIdx =
-    "as_of_date" in mapping ? mapping.as_of_date : ("as_of" in mapping ? mapping.as_of : -1);
+    "as_of_date" in mapping
+      ? mapping.as_of_date
+      : ("date" in mapping ? mapping.date : ("as_of" in mapping ? mapping.as_of : -1));
   const showIdx = "show" in mapping ? mapping.show : -1;
   const segments = [];
 
@@ -956,7 +958,7 @@ function readOwnershipSegments(rows) {
       amount_btc: amount,
       percent,
       color: color || "rgb(255, 66, 2)",
-      as_of_date: asOfIdx >= 0 ? renderDateLabel(row[asOfIdx]) : "",
+      as_of_date: asOfIdx >= 0 ? normalizeText(row[asOfIdx]) : "",
       show: showIdx >= 0 ? normalizeText(row[showIdx]) : "yes",
     });
   }
@@ -1456,7 +1458,7 @@ function renderIntroPoint(point) {
   const highlights = parsed.highlights;
   const prefaceHtml = parsed.prefaceLines.length
     ? `<div class="intro-preface">${parsed.prefaceLines
-      .map((line) => `<p>${escapeHtml(line)}</p>`)
+      .map((line) => `<p>${emphasizeLeadLabelAndNumbers(line)}</p>`)
       .join("")}</div>`
     : "";
   const title = normalizeText(point.title) || "Intro";
@@ -1922,17 +1924,19 @@ function renderSnapshotSection(data) {
   };
 
   if (ownershipSetting.show && data.distribution && data.distribution.length) {
-    const selectedRows = data.distribution
-      .filter((row) => isRowVisible(row.show))
-      .slice(0, ownershipSetting.top_n || 8);
-    const totalAmount = selectedRows.reduce((sum, row) => sum + Number(row.amount_btc || 0), 0);
+    const visibleRows = data.distribution.filter((row) => isRowVisible(row.show));
+    const selectedRows = visibleRows.slice(0, ownershipSetting.top_n || 8);
+    const totalVisibleAmount = visibleRows.reduce(
+      (sum, row) => sum + Number(row.amount_btc || 0),
+      0
+    );
     let segments = selectedRows.map((row) => {
       const amount = Math.max(0, Number(row.amount_btc || 0));
       const rawPercent =
         row.percent && row.percent > 0
           ? Number(row.percent)
-          : totalAmount > 0
-            ? (amount / totalAmount) * 100
+          : totalVisibleAmount > 0
+            ? (amount / totalVisibleAmount) * 100
             : 0;
       return {
         category: normalizeText(row.category),
@@ -1951,14 +1955,15 @@ function renderSnapshotSection(data) {
     }
 
     const maxSupply = Number((data.circulating && data.circulating.max_supply_btc) || 0);
-    const totalSupply = maxSupply > 0 ? maxSupply : totalAmount > 0 ? totalAmount : 21000000;
+    const totalSupply =
+      totalVisibleAmount > 0 ? totalVisibleAmount : maxSupply > 0 ? maxSupply : 21000000;
     const asOfRaw = normalizeText(
-      (data.circulating && data.circulating.as_of_date) ||
-        (segments.find((row) => normalizeText(row.as_of_date)) || {}).as_of_date ||
+      (visibleRows.find((row) => normalizeText(row.as_of_date)) || {}).as_of_date ||
+        (data.circulating && data.circulating.as_of_date) ||
         ""
     );
     const subtitle = asOfRaw
-      ? `Ownership Breakdown (as of ${formatMonthYear(asOfRaw)})`
+      ? `Ownership Breakdown (as of ${formatAsOfDate(asOfRaw)})`
       : "Ownership Breakdown";
 
     const labelCount = Math.max(1, ownershipSetting.bar_label_count || 4);
@@ -2312,9 +2317,16 @@ function renderContentBlocks(rawValue) {
 }
 
 function emphasizeLeadLabelAndNumbers(text) {
-  const labelMatch = text.match(/^([A-Za-z][A-Za-z0-9 '&/().,-]{0,80}:)(\s*.*)?$/);
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(normalized)) {
+    return emphasizeNumbers(normalized);
+  }
+  const labelMatch = normalized.match(/^([^:\n]{1,120}:)(\s*.*)?$/u);
   if (!labelMatch) {
-    return emphasizeNumbers(text);
+    return emphasizeNumbers(normalized);
   }
   const lead = `<strong>${escapeHtml(labelMatch[1])}</strong>`;
   const rest = normalizeText(labelMatch[2] || "");
@@ -2579,10 +2591,14 @@ function formatPercent(value) {
   return `${rendered}%`;
 }
 
-function formatMonthYear(value) {
+function formatAsOfDate(value) {
   const parsed = parseDateValue(value);
   if (parsed) {
-    return parsed.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return parsed.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   }
   return normalizeText(value);
 }
