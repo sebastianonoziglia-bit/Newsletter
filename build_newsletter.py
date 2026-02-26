@@ -1772,11 +1772,11 @@ def render_html(
       table {{ border-collapse: collapse; }}
       img {{ border: 0; display: block; max-width: 100%; height: auto; }}
       a {{ color: #ff4202; text-decoration: none; }}
-      .toolbar {{ width: 100%; max-width: 680px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }}
+      .toolbar {{ width: 100%; max-width: 600px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }}
       .download-pdf-btn {{ border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }}
       .download-pdf-btn:hover {{ background: #fff4ef; }}
       .wrapper {{ width: 100%; background: #f5f5f5; padding: 32px 0; }}
-      .container {{ width: 680px; max-width: 680px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }}
+      .container {{ width: 600px; max-width: 600px; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }}
       .divider {{ height: 4px; background: #ff4202; line-height: 4px; }}
       .hero {{ position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }}
       .hero-bg {{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }}
@@ -1794,42 +1794,24 @@ def render_html(
       .section ul {{ margin: 20px 0 20px 18px; padding: 0; font-size: 14px; line-height: 1.6; }}
       .section li {{ margin-bottom: 8px; }}
       .section .point-source {{ margin-top: 14px; font-size: 11px; line-height: 1.5; color: #8a8a8a; }}
-      .image {{ margin: 20px 0; }}
-      /* adaptive point images */
+      .image {{ margin: 20px 0; width: 100%; box-sizing: border-box; }}
       .image img {{
         display: block;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
-        width: 100%;
-        height: auto;
-        max-height: 600px;
-        object-fit: contain;
-        background: #f9f9f9;
-      }}
-      .image img.is-portrait {{
-        width: auto;
-        max-width: 100%;
-        max-height: 580px;
-        margin: 0 auto;
-        object-fit: contain;
       }}
       .caption {{ font-size: 12px; color: #7a7a7a; margin-top: 6px; }}
       .extra-images {{ margin: 14px 0 0; display: grid; gap: 10px; }}
       .extra-images img {{
         display: block;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
-        width: 100%;
-        height: auto;
-        max-height: 500px;
-        object-fit: contain;
-        background: #f9f9f9;
-      }}
-      .extra-images img.is-portrait {{
-        width: auto;
-        max-width: 100%;
-        max-height: 500px;
-        margin: 0 auto;
       }}
       .market {{ background: #070707; color: #f4f4f4; border-top: 1px solid #171717; }}
       .market h2 {{ color: #ffffff; margin-bottom: 8px; }}
@@ -1899,6 +1881,13 @@ def render_html(
         .footer-legal {{ padding: 14px 20px 10px; }}
         .footer-dark {{ padding: 18px 20px; }}
         .footer-bar {{ flex-direction: column; align-items: flex-start; gap: 14px; }}
+      }}
+      @media (max-width: 920px) and (orientation: landscape) {{
+        .container {{ width: 100%; max-width: 100%; border-radius: 0; }}
+        .image img {{ max-height: 38vh; width: auto; max-width: 100%; margin: 0 auto; }}
+        .extra-images img {{ max-height: 32vh; width: auto; max-width: 100%; margin: 0 auto; }}
+        .section {{ padding: 14px 18px; }}
+        .hero {{ min-height: 180px; }}
       }}
       @media print {{
         .no-print {{ display: none !important; }}

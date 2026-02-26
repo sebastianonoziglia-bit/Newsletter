@@ -1057,11 +1057,11 @@ function renderHtml(
       table { border-collapse: collapse; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
-      .toolbar { width: 100%; max-width: 640px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
+      .toolbar { width: 100%; max-width: 600px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
       .wrapper { width: 100% !important; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 100%; max-width: 640px; box-sizing: border-box; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .container { width: 100%; max-width: 600px; box-sizing: border-box; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: 0.82; }
@@ -1095,42 +1095,24 @@ function renderHtml(
       .section li { margin-bottom: 9px; }
       .section .point-source { margin-top: 14px; font-size: 12px; line-height: 1.6; color: #8a8a8a; }
       .section p, .section li, .intro-preface p, .intro-text { overflow-wrap: anywhere; word-break: break-word; }
-      .image { margin: 20px 0; }
-      /* adaptive point images */
+      .image { margin: 20px 0; width: 100%; box-sizing: border-box; }
       .image img {
         display: block;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
-        width: 100%;
-        height: auto;
-        max-height: 600px;
-        object-fit: contain;
-        background: #f9f9f9;
-      }
-      .image img.is-portrait {
-        width: auto;
-        max-width: 100%;
-        max-height: 580px;
-        margin: 0 auto;
-        object-fit: contain;
       }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
       .extra-images { margin: 14px 0 0; display: grid; gap: 10px; }
       .extra-images img {
         display: block;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
-        width: 100%;
-        height: auto;
-        max-height: 500px;
-        object-fit: contain;
-        background: #f9f9f9;
-      }
-      .extra-images img.is-portrait {
-        width: auto;
-        max-width: 100%;
-        max-height: 500px;
-        margin: 0 auto;
       }
       .market { background: #0f0f0f; color: #f4f4f4; border-top: 1px solid #171717; }
       .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
@@ -1267,18 +1249,20 @@ function renderHtml(
         .footer-dark { padding: 18px 20px; }
         .footer-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
       }
-      @media (max-width: 932px) and (orientation: landscape) {
+      @media (max-width: 920px) and (orientation: landscape) {
         html, body { width: 100% !important; max-width: 100% !important; overflow-x: hidden !important; }
         table.wrapper, table.container { width: 100% !important; max-width: 100% !important; table-layout: fixed; }
         table.wrapper > tbody > tr > td,
         table.container > tbody > tr > td { width: 100% !important; min-width: 0; }
         .toolbar, .container { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
         .toolbar { padding-left: 12px !important; padding-right: 12px !important; }
-        .image img, .extra-images img { max-width: 100% !important; margin: 0 auto !important; }
+        .image img { max-height: 38vh !important; width: auto !important; max-width: 100% !important; margin: 0 auto !important; }
+        .extra-images img { max-height: 32vh !important; width: auto !important; max-width: 100% !important; margin: 0 auto !important; }
         .wrapper { padding: 0 !important; }
         .container { border-radius: 0 !important; border-left: 0; border-right: 0; }
-        .section, .intro-wrap, .footer-legal, .footer-dark { padding-left: 14px !important; padding-right: 14px !important; }
-        .hero { min-height: 210px; }
+        .section { padding: 14px 18px !important; }
+        .intro-wrap, .footer-legal, .footer-dark { padding-left: 18px !important; padding-right: 18px !important; }
+        .hero { min-height: 180px !important; }
         .hero-content { padding: 14px !important; }
         .hero-title { font-size: 22px !important; }
         .intro-content { max-width: 100% !important; padding: 14px !important; }
