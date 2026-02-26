@@ -1800,23 +1800,23 @@ def render_html(
         width: 100%;
         max-width: 100%;
         height: auto;
-        max-height: 560px;
         margin: 0 auto;
+        object-fit: contain;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
       }}
       .image img.is-standard {{
         width: 100%;
-        max-height: 560px;
+        height: auto;
       }}
       .image img.is-portrait {{
         width: auto;
         max-width: 72%;
-        max-height: 620px;
+        height: auto;
       }}
       .image img.is-wide {{
         width: 100%;
-        max-height: 430px;
+        height: auto;
       }}
       .caption {{ font-size: 12px; color: #7a7a7a; margin-top: 6px; }}
       .extra-images {{ margin: 14px 0 0; display: grid; gap: 10px; }}
@@ -1825,23 +1825,23 @@ def render_html(
         width: 100%;
         max-width: 100%;
         height: auto;
-        max-height: 440px;
         margin: 0 auto;
+        object-fit: contain;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
       }}
       .extra-images img.is-standard {{
         width: 100%;
-        max-height: 440px;
+        height: auto;
       }}
       .extra-images img.is-portrait {{
         width: auto;
         max-width: 68%;
-        max-height: 500px;
+        height: auto;
       }}
       .extra-images img.is-wide {{
         width: 100%;
-        max-height: 320px;
+        height: auto;
       }}
       .market {{ background: #070707; color: #f4f4f4; border-top: 1px solid #171717; }}
       .market h2 {{ color: #ffffff; margin-bottom: 8px; }}
