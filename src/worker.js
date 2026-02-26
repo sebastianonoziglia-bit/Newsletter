@@ -1057,11 +1057,11 @@ function renderHtml(
       table { border-collapse: collapse; }
       img { border: 0; display: block; max-width: 100%; height: auto; }
       a { color: #ff4202; text-decoration: none; }
-      .toolbar { width: 100%; max-width: 600px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
+      .toolbar { width: 100%; max-width: 512px; margin: 0 auto; display: flex; justify-content: flex-end; padding: 12px 0 8px; }
       .download-pdf-btn { border: 1px solid #ff4202; border-radius: 999px; padding: 8px 14px; background: #ffffff; color: #ff4202; font: 600 12px/1 "Poppins", Arial, sans-serif; cursor: pointer; }
       .download-pdf-btn:hover { background: #fff4ef; }
       .wrapper { width: 100% !important; background: #f5f5f5; padding: 32px 0; }
-      .container { width: 100%; max-width: 600px; box-sizing: border-box; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
+      .container { width: 100%; max-width: 512px; box-sizing: border-box; background: #ffffff; border: 1px solid #e6e6e6; border-radius: 16px; overflow: hidden; }
       .divider { height: 4px; background: #ff4202; line-height: 4px; }
       .hero { position: relative; overflow: hidden; background: #0a0a0a; min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end; }
       .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; opacity: 0.82; }
@@ -1101,8 +1101,23 @@ function renderHtml(
         width: 100%;
         max-width: 100%;
         height: auto;
+        max-height: 560px;
+        margin: 0 auto;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
+      }
+      .image img.is-standard {
+        width: 100%;
+        max-height: 560px;
+      }
+      .image img.is-portrait {
+        width: auto;
+        max-width: 72%;
+        max-height: 620px;
+      }
+      .image img.is-wide {
+        width: 100%;
+        max-height: 430px;
       }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
       .extra-images { margin: 14px 0 0; display: grid; gap: 10px; }
@@ -1111,8 +1126,23 @@ function renderHtml(
         width: 100%;
         max-width: 100%;
         height: auto;
+        max-height: 440px;
+        margin: 0 auto;
         border-radius: 12px;
         border: 1px solid #e6e6e6;
+      }
+      .extra-images img.is-standard {
+        width: 100%;
+        max-height: 440px;
+      }
+      .extra-images img.is-portrait {
+        width: auto;
+        max-width: 68%;
+        max-height: 500px;
+      }
+      .extra-images img.is-wide {
+        width: 100%;
+        max-height: 320px;
       }
       .market { background: #0f0f0f; color: #f4f4f4; border-top: 1px solid #171717; }
       .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
@@ -1389,8 +1419,17 @@ ${marketHtml}
     <script>
       (function () {
         function tagOrientation(img) {
-          if (img.naturalHeight > img.naturalWidth) {
+          if (!(img.naturalWidth > 0) || !(img.naturalHeight > 0)) {
+            return;
+          }
+          img.classList.remove("is-portrait", "is-standard", "is-wide");
+          var ratio = img.naturalWidth / img.naturalHeight;
+          if (ratio < 0.85) {
             img.classList.add("is-portrait");
+          } else if (ratio > 1.85) {
+            img.classList.add("is-wide");
+          } else {
+            img.classList.add("is-standard");
           }
         }
         document.querySelectorAll(".image img, .extra-images img").forEach(function (img) {
