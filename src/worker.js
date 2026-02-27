@@ -1100,6 +1100,12 @@ function renderHtml(
       .section .point-source.image-source { margin-top: 6px; font-size: 11px; line-height: 1.5; }
       .section p, .section li, .intro-preface p, .intro-text { overflow-wrap: anywhere; word-break: break-word; }
       .image { margin: 20px 0; width: 100%; box-sizing: border-box; }
+      .image.mode-full {
+        margin-left: -32px;
+        margin-right: -32px;
+        width: calc(100% + 64px);
+      }
+      .image.mode-tight { text-align: center; }
       .image img {
         display: block;
         width: 100%;
@@ -1123,9 +1129,27 @@ function renderHtml(
         width: 100%;
         height: auto;
       }
+      .image img.mode-full {
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }
+      .image img.mode-tight {
+        width: 100% !important;
+        max-width: 380px !important;
+      }
       .caption { font-size: 12px; color: #7a7a7a; margin-top: 6px; }
       .extra-images { margin: 14px 0 24px; display: grid; gap: 10px; }
       .extra-image-item { display: block; }
+      .extra-image-item.mode-full {
+        margin-left: -32px;
+        margin-right: -32px;
+        width: calc(100% + 64px);
+      }
+      .extra-image-item.mode-tight { text-align: center; }
       .extra-images img {
         display: block;
         width: 100%;
@@ -1148,6 +1172,18 @@ function renderHtml(
       .extra-images img.is-wide {
         width: 100%;
         height: auto;
+      }
+      .extra-image-item img.mode-full {
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }
+      .extra-image-item img.mode-tight {
+        width: 100% !important;
+        max-width: 380px !important;
       }
       .market { background: #0f0f0f; color: #f4f4f4; border-top: 1px solid #171717; }
       .market-live { margin: 0 0 12px; display: inline-flex; gap: 6px; align-items: baseline; font-size: 12px; color: #ffcfb8; background: rgba(255,66,2,0.16); border: 1px solid rgba(255,66,2,0.35); border-radius: 999px; padding: 4px 10px; }
@@ -1231,6 +1267,9 @@ function renderHtml(
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
+        .image.mode-full { margin-left: -20px; margin-right: -20px; width: calc(100% + 40px); }
+        .extra-image-item.mode-full { margin-left: -20px; margin-right: -20px; width: calc(100% + 40px); }
+        .image img.mode-tight, .extra-image-item img.mode-tight { max-width: 260px !important; }
         .image img, .extra-images img { max-width: 100%; margin: 0 auto; }
         .section { padding: 18px 20px; }
         .section h2 { font-size: 20px !important; margin: 0 0 16px; }
@@ -1294,6 +1333,10 @@ function renderHtml(
         .toolbar { padding-left: 12px !important; padding-right: 12px !important; }
         .image img { max-height: 38vh !important; width: auto !important; max-width: 100% !important; margin: 0 auto !important; }
         .extra-images img { max-height: 32vh !important; width: auto !important; max-width: 100% !important; margin: 0 auto !important; }
+        .image.mode-full { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; }
+        .extra-image-item.mode-full { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; }
+        .image.mode-full img, .extra-image-item.mode-full img { width: 100% !important; max-width: none !important; max-height: none !important; }
+        .image.mode-tight img, .extra-image-item.mode-tight img { width: 100% !important; max-width: 260px !important; max-height: 32vh !important; }
         .wrapper { padding: 0 !important; }
         .container { border-radius: 0 !important; border-left: 0; border-right: 0; }
         .section { padding: 14px 18px !important; }
@@ -1424,6 +1467,49 @@ ${marketHtml}
     </script>
     <script>
       (function () {
+        function detectModeFromPath(path) {
+          var raw = String(path || "").split("?")[0].split("#")[0].toLowerCase();
+          if (/_full\.[a-z0-9]{2,5}$/.test(raw)) return "full";
+          if (/_tight\.[a-z0-9]{2,5}$/.test(raw)) return "tight";
+          return "plain";
+        }
+
+        function applyDisplayMode(img) {
+          var mode = detectModeFromPath(img.currentSrc || img.getAttribute("src") || "");
+          img.classList.remove("mode-full", "mode-tight", "mode-plain");
+          img.classList.add("mode-" + mode);
+          var wrap = img.closest(".image, .extra-image-item");
+          if (wrap) {
+            wrap.classList.remove("mode-full", "mode-tight", "mode-plain");
+            wrap.classList.add("mode-" + mode);
+          }
+        }
+
+        function applyMobileSpecificSources() {
+          if (!window.matchMedia("(max-width: 720px)").matches) {
+            return;
+          }
+          document.querySelectorAll(".image img, .extra-images img").forEach(function (img) {
+            if (img.dataset.mobileApplied === "1") {
+              return;
+            }
+            var mobileList = (img.dataset.mobileSrcs || "").split("|").filter(Boolean);
+            if (!mobileList.length) {
+              return;
+            }
+            var current = img.getAttribute("src") || "";
+            var existingFallbacks = (img.dataset.fallbacks || "").split("|").filter(Boolean);
+            var mergedFallbacks = mobileList.slice(1);
+            if (current) {
+              mergedFallbacks.push(current);
+            }
+            mergedFallbacks = mergedFallbacks.concat(existingFallbacks);
+            img.dataset.fallbacks = mergedFallbacks.join("|");
+            img.dataset.mobileApplied = "1";
+            img.src = mobileList[0];
+          });
+        }
+
         function tagOrientation(img) {
           if (!(img.naturalWidth > 0) || !(img.naturalHeight > 0)) {
             return;
@@ -1438,11 +1524,14 @@ ${marketHtml}
             img.classList.add("is-standard");
           }
         }
+        applyMobileSpecificSources();
         document.querySelectorAll(".image img, .extra-images img").forEach(function (img) {
           if (img.complete && img.naturalWidth > 0) {
+            applyDisplayMode(img);
             tagOrientation(img);
           } else {
             img.addEventListener("load", function () {
+              applyDisplayMode(img);
               tagOrientation(img);
             });
           }
@@ -1533,8 +1622,8 @@ function renderPoint(point, meta, imageOptions, showPointSources = false) {
   const imageSources = resolveImageSources(point, meta, imageOptions);
   const mainSourceText = sourceData.byKey.get(String(point.order)) || "";
   const imageBlock = renderImageBlock(point, imageSources, mainSourceText);
-  const extraImageSources = resolveExtraImagePaths(point, meta, imageOptions);
-  const extraImagesBlock = renderExtraImagesBlock(point, extraImageSources, sourceData.byKey);
+  const extraImageEntries = resolveExtraImagePaths(point, meta, imageOptions);
+  const extraImagesBlock = renderExtraImagesBlock(point, extraImageEntries, sourceData.byKey);
 
   let output = "            <tr>\n";
   output += "              <td class=\"section\">\n";
@@ -1560,34 +1649,51 @@ function renderImageBlock(point, imageSources, sourceText = "") {
     return "";
   }
   const fallbacks = imageSources.slice(1).join("|");
+  const displayMode = detectImageModeFromPath(primarySrc);
+  const mobileCandidates = buildMobileVariantCandidates(imageSources);
+  const mobileAttr = mobileCandidates.length
+    ? ` data-mobile-srcs="${escapeHtml(mobileCandidates.join("|"), true)}"`
+    : "";
   const caption = point.image_caption || point.title;
   const sourceHtml = sourceText
     ? `  <p class="point-source image-source">${escapeHtml(sourceText)}</p>\n`
     : "";
   return (
-    '<div class="image">\n' +
-    `  <img src="${escapeHtml(primarySrc, true)}" data-fallbacks="${escapeHtml(fallbacks, true)}" alt="${escapeHtml(point.title)}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.closest('.image').style.display='none';}">\n` +
+    `<div class="image mode-${displayMode}">\n` +
+    `  <img class="mode-${displayMode}" src="${escapeHtml(primarySrc, true)}" data-fallbacks="${escapeHtml(fallbacks, true)}"${mobileAttr} alt="${escapeHtml(point.title)}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.closest('.image').style.display='none';}">\n` +
     `  <div class="caption">${escapeHtml(caption)}</div>\n` +
     sourceHtml +
     "</div>"
   );
 }
 
-function renderExtraImagesBlock(point, imageSources, sourceByKey = new Map()) {
-  if (!imageSources.length) {
+function renderExtraImagesBlock(point, imageEntries, sourceByKey = new Map()) {
+  if (!imageEntries.length) {
     return "";
   }
-  const imageTags = imageSources
+  const imageTags = imageEntries
     .map(
-      (src, index) => {
+      (entry, index) => {
+        const sources = Array.isArray(entry?.sources) ? entry.sources : [];
+        const primarySrc = sources[0] || "";
+        if (!primarySrc) {
+          return "";
+        }
+        const fallbacks = sources.slice(1).join("|");
+        const displayMode = entry?.mode || detectImageModeFromPath(primarySrc);
         const key = `${point.order}.${index + 1}`;
         const sourceText = sourceByKey.get(key) || "";
         const sourceHtml = sourceText
           ? `\n    <p class="point-source image-source">${escapeHtml(sourceText)}</p>`
           : "";
-        return `  <div class="extra-image-item">\n    <img src="${escapeHtml(src, true)}" alt="${escapeHtml(point.title)} - extra ${index + 1}" onerror="this.closest('.extra-image-item').style.display='none'">${sourceHtml}\n  </div>`;
+        const mobileCandidates = buildMobileVariantCandidates(sources);
+        const mobileAttr = mobileCandidates.length
+          ? ` data-mobile-srcs="${escapeHtml(mobileCandidates.join("|"), true)}"`
+          : "";
+        return `  <div class="extra-image-item mode-${displayMode}">\n    <img class="mode-${displayMode}" src="${escapeHtml(primarySrc, true)}" data-fallbacks="${escapeHtml(fallbacks, true)}"${mobileAttr} alt="${escapeHtml(point.title)} - extra ${index + 1}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.closest('.extra-image-item').style.display='none';}">${sourceHtml}\n  </div>`;
       }
     )
+    .filter(Boolean)
     .join("\n");
   return '<div class="extra-images">\n' + imageTags + "\n</div>";
 }
@@ -2156,24 +2262,38 @@ function resolveExtraImagePaths(point, meta, imageOptions) {
   const imageBaseUrl = normalizeText(meta.image_base_url);
   const maxExtraRaw = parseNumber(meta.max_extra_images, 6);
   const maxExtraImages = Math.max(0, Math.min(20, Math.floor(maxExtraRaw || 6)));
-  const sources = [];
+  const entries = [];
+  const exts = ["png", "jpg", "jpeg", "webp"];
 
   for (let index = 1; index <= maxExtraImages; index += 1) {
-    const candidate = useR2Images
-      ? `${r2ImagePrefix}${point.order}.${index}.${r2ImageExt}`
-      : `${point.order}.${index}.png`;
-
-    if (useR2Images) {
-      sources.push(`/img/${candidate.replace(/^\/+/, "")}`);
-    } else {
-      sources.push(`/${candidate.replace(/^\/+/, "")}`);
-      if (imageBaseUrl) {
-        sources.push(`${imageBaseUrl.replace(/\/+$/, "")}/${candidate.replace(/^\/+/, "")}`);
+    const base = useR2Images
+      ? `${r2ImagePrefix}${point.order}.${index}`
+      : `${point.order}.${index}`;
+    const nameCandidates = buildAutoImageNameCandidates(
+      base,
+      useR2Images ? [r2ImageExt] : exts
+    );
+    const sources = [];
+    nameCandidates.forEach((candidate) => {
+      const clean = candidate.replace(/^\/+/, "");
+      if (useR2Images) {
+        sources.push(`/img/${clean}`);
+      } else {
+        sources.push(`/${clean}`);
+        if (imageBaseUrl) {
+          sources.push(`${imageBaseUrl.replace(/\/+$/, "")}/${clean}`);
+        }
       }
+    });
+    if (sources.length) {
+      entries.push({
+        mode: detectImageModeFromPath(nameCandidates[0] || ""),
+        sources,
+      });
     }
   }
 
-  return sources;
+  return entries;
 }
 
 function resolveImageSources(point, meta, imageOptions) {
@@ -2243,16 +2363,104 @@ function resolveImageSources(point, meta, imageOptions) {
   }
 
   if (useR2Images) {
-    pushCandidateWithFallbacks(`${r2ImagePrefix}${point.order}.${r2ImageExt}`);
+    buildAutoImageNameCandidates(`${r2ImagePrefix}${point.order}`, [r2ImageExt]).forEach(
+      (candidate) => pushCandidateWithFallbacks(candidate)
+    );
     return candidates;
   }
 
   const baseNames = [`${point.order}`, `image${point.order}`];
   const exts = ["png", "jpg", "jpeg", "webp"];
   baseNames.forEach((base) => {
-    exts.forEach((ext) => pushCandidateWithFallbacks(`${base}.${ext}`, true));
+    buildAutoImageNameCandidates(base, exts).forEach((candidate) =>
+      pushCandidateWithFallbacks(candidate, true)
+    );
   });
   return candidates;
+}
+
+function buildAutoImageNameCandidates(base, extensions) {
+  const cleanBase = normalizeText(base).replace(/\s+/g, "");
+  if (!cleanBase) {
+    return [];
+  }
+  const exts = (extensions || [])
+    .map((ext) => normalizeText(ext).replace(/^\./, "").toLowerCase())
+    .filter(Boolean);
+  const modes = ["full", "tight", "plain"];
+  const names = [];
+  modes.forEach((mode) => {
+    const stem = mode === "plain" ? cleanBase : `${cleanBase}_${mode}`;
+    exts.forEach((ext) => names.push(`${stem}.${ext}`));
+  });
+  return names;
+}
+
+function detectImageModeFromPath(rawPath) {
+  const raw = normalizeText(rawPath);
+  if (!raw) {
+    return "plain";
+  }
+  const clean = raw.split("?")[0].split("#")[0].toLowerCase();
+  if (/_full\.[a-z0-9]{2,5}$/i.test(clean)) {
+    return "full";
+  }
+  if (/_tight\.[a-z0-9]{2,5}$/i.test(clean)) {
+    return "tight";
+  }
+  return "plain";
+}
+
+function buildMobileVariantCandidates(candidates) {
+  const output = [];
+  const seen = new Set();
+  candidates.forEach((candidate) => {
+    const mobile = toMobileVariantPath(candidate);
+    const key = normalizeText(mobile).toLowerCase();
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    output.push(mobile);
+  });
+  return output;
+}
+
+function toMobileVariantPath(rawPath) {
+  const raw = normalizeText(rawPath);
+  if (!raw) {
+    return "";
+  }
+  if (/^data:/i.test(raw) || /^cid:/i.test(raw)) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      const parts = url.pathname.split("/");
+      const file = parts.pop() || "";
+      if (!file || /^mobile/i.test(file)) {
+        return "";
+      }
+      parts.push(`mobile${file}`);
+      url.pathname = parts.join("/");
+      return url.toString();
+    } catch (_err) {
+      return "";
+    }
+  }
+
+  const suffixIndex = raw.search(/[?#]/);
+  const base = suffixIndex >= 0 ? raw.slice(0, suffixIndex) : raw;
+  const suffix = suffixIndex >= 0 ? raw.slice(suffixIndex) : "";
+  const slash = base.lastIndexOf("/");
+  const dir = slash >= 0 ? base.slice(0, slash + 1) : "";
+  const file = slash >= 0 ? base.slice(slash + 1) : base;
+  if (!file || /^mobile/i.test(file)) {
+    return "";
+  }
+  return `${dir}mobile${file}${suffix}`;
 }
 
 function resolveAssetPath(rawValue, fallbackPath) {

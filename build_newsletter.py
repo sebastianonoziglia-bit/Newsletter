@@ -15,7 +15,7 @@ from datetime import date, datetime
 from io import StringIO
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import urlopen
 
 from openpyxl import Workbook, load_workbook
@@ -1628,18 +1628,87 @@ def looks_like_remote_image_source(path: str) -> bool:
     return path.startswith(("http://", "https://", "data:", "cid:"))
 
 
+def to_mobile_variant_path(path: str) -> str:
+    raw = normalize_text(path)
+    if not raw:
+        return ""
+    if re.match(r"^(data:|cid:)", raw, flags=re.IGNORECASE):
+        return ""
+
+    if re.match(r"^https?://", raw, flags=re.IGNORECASE):
+        try:
+            split = urlsplit(raw)
+            parts = split.path.split("/")
+            filename = parts[-1] if parts else ""
+            if not filename or filename.lower().startswith("mobile"):
+                return ""
+            parts[-1] = f"mobile{filename}"
+            return urlunsplit((split.scheme, split.netloc, "/".join(parts), split.query, split.fragment))
+        except Exception:
+            return ""
+
+    suffix_match = re.search(r"([?#].*)$", raw)
+    suffix = suffix_match.group(1) if suffix_match else ""
+    base = raw[: -len(suffix)] if suffix else raw
+    dir_name, _, file_name = base.rpartition("/")
+    if not file_name:
+        return ""
+    if file_name.lower().startswith("mobile"):
+        return ""
+    prefixed = f"mobile{file_name}"
+    if dir_name:
+        return f"{dir_name}/{prefixed}{suffix}"
+    return f"{prefixed}{suffix}"
+
+
+def build_mobile_variant_candidates(paths: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for path in paths:
+        candidate = normalize_text(to_mobile_variant_path(path))
+        if not candidate:
+            continue
+        key = candidate.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(candidate)
+    return out
+
+
+def build_auto_image_name_candidates(base: str, extensions: list[str]) -> list[str]:
+    clean_base = re.sub(r"\s+", "", normalize_text(base))
+    if not clean_base:
+        return []
+    clean_exts = [normalize_text(ext).lstrip(".").lower() for ext in extensions if normalize_text(ext)]
+    modes = ["full", "tight", "plain"]
+    names: list[str] = []
+    for mode in modes:
+        stem = clean_base if mode == "plain" else f"{clean_base}_{mode}"
+        for ext in clean_exts:
+            names.append(f"{stem}.{ext}")
+    return names
+
+
+def detect_image_mode_from_path(path: str) -> str:
+    raw = normalize_text(path).split("?")[0].split("#")[0].lower()
+    if re.search(r"_full\.[a-z0-9]{2,5}$", raw):
+        return "full"
+    if re.search(r"_tight\.[a-z0-9]{2,5}$", raw):
+        return "tight"
+    return "plain"
+
+
 def resolve_image_path(point: Point, meta: dict[str, str], output_dir: Path) -> str:
     image_path = normalize_text(point.image_path)
     if image_path:
         candidate = image_path
     elif parse_bool(meta.get("auto_image_by_order", "true")):
         image_dir = normalize_text(meta.get("image_dir", ".")) or "."
-        filename_candidates = [
-            f"{point.order}.png",
-            f"{point.order}.jpg",
-            f"{point.order}.jpeg",
-            f"{point.order}.webp",
-        ]
+        filename_candidates = build_auto_image_name_candidates(
+            str(point.order),
+            ["png", "jpg", "jpeg", "webp"],
+        )
         candidate = ""
         for filename in filename_candidates:
             relative_candidate = (Path(image_dir) / filename).as_posix()
@@ -1674,8 +1743,10 @@ def resolve_extra_image_paths(
     sources: list[str] = []
 
     for index in range(1, max_extra_images + 1):
-        for extension in extensions:
-            candidate = (Path(image_dir) / f"{point.order}.{index}.{extension}").as_posix()
+        base = f"{point.order}.{index}"
+        name_candidates = build_auto_image_name_candidates(base, extensions)
+        for candidate_name in name_candidates:
+            candidate = (Path(image_dir) / candidate_name).as_posix()
             if (output_dir / candidate).exists():
                 sources.append(candidate)
                 break
@@ -1686,14 +1757,21 @@ def render_image_block(point: Point, image_src: str, source_text: str = "") -> s
     if not image_src:
         return ""
     caption = point.image_caption or point.title
+    mode = detect_image_mode_from_path(image_src)
+    mobile_sources = build_mobile_variant_candidates([image_src])
+    mobile_attr = (
+        f' data-mobile-srcs="{html.escape("|".join(mobile_sources), quote=True)}"'
+        if mobile_sources
+        else ""
+    )
     source_html = (
         f'  <p class="point-source image-source">{html.escape(source_text)}</p>\n'
         if normalize_text(source_text)
         else ""
     )
     return (
-        '<div class="image">\n'
-        f'  <img src="{html.escape(image_src)}" alt="{html.escape(point.title)}">\n'
+        f'<div class="image mode-{mode}">\n'
+        f'  <img class="mode-{mode}" src="{html.escape(image_src)}" data-fallbacks=""{mobile_attr} alt="{html.escape(point.title)}" onerror="const list=(this.dataset.fallbacks||\'\').split(\'|\').filter(Boolean);if(list.length){{this.src=list.shift();this.dataset.fallbacks=list.join(\'|\');}}else{{this.closest(\'.image\').style.display=\'none\';}}">\n'
         f'  <div class="caption">{html.escape(caption)}</div>\n'
         f"{source_html}"
         "</div>"
@@ -1706,19 +1784,28 @@ def render_extra_images_block(
     if not image_sources:
         return ""
     source_by_key = source_by_key or {}
-    image_tags = "\n".join(
-        (
-            f'  <div class="extra-image-item">\n'
-            f'    <img src="{html.escape(src)}" alt="{html.escape(point.title)} - extra {index}">\n'
-            + (
-                f'    <p class="point-source image-source">{html.escape(source_by_key.get(f"{point.order}.{index}", ""))}</p>\n'
-                if source_by_key.get(f"{point.order}.{index}", "")
-                else ""
-            )
-            + "  </div>"
+    rows: list[str] = []
+    for index, src in enumerate(image_sources, start=1):
+        mode = detect_image_mode_from_path(src)
+        mobile_sources = build_mobile_variant_candidates([src])
+        mobile_attr = (
+            f' data-mobile-srcs="{html.escape("|".join(mobile_sources), quote=True)}"'
+            if mobile_sources
+            else ""
         )
-        for index, src in enumerate(image_sources, start=1)
-    )
+        source_text = source_by_key.get(f"{point.order}.{index}", "")
+        source_html = (
+            f'    <p class="point-source image-source">{html.escape(source_text)}</p>\n'
+            if source_text
+            else ""
+        )
+        rows.append(
+            f'  <div class="extra-image-item mode-{mode}">\n'
+            f'    <img class="mode-{mode}" src="{html.escape(src)}" data-fallbacks=""{mobile_attr} alt="{html.escape(point.title)} - extra {index}" onerror="const list=(this.dataset.fallbacks||\'\').split(\'|\').filter(Boolean);if(list.length){{this.src=list.shift();this.dataset.fallbacks=list.join(\'|\');}}else{{this.closest(\'.extra-image-item\').style.display=\'none\';}}">\n'
+            f"{source_html}"
+            "  </div>"
+        )
+    image_tags = "\n".join(rows)
     return '<div class="extra-images">\n' + image_tags + "\n</div>"
 
 
@@ -1895,6 +1982,8 @@ def render_html(
       .section .point-source {{ margin-top: 14px; font-size: 11px; line-height: 1.5; color: #8a8a8a; }}
       .section .point-source.image-source {{ margin-top: 6px; font-size: 10px; line-height: 1.4; }}
       .image {{ margin: 20px 0; width: 100%; box-sizing: border-box; }}
+      .image.mode-full {{ margin-left: -32px; margin-right: -32px; width: calc(100% + 64px); }}
+      .image.mode-tight {{ text-align: center; }}
       .image img {{
         display: block;
         width: 100%;
@@ -1918,9 +2007,23 @@ def render_html(
         width: 100%;
         height: auto;
       }}
+      .image img.mode-full {{
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }}
+      .image img.mode-tight {{
+        width: 100% !important;
+        max-width: 380px !important;
+      }}
       .caption {{ font-size: 12px; color: #7a7a7a; margin-top: 6px; }}
       .extra-images {{ margin: 14px 0 24px; display: grid; gap: 10px; }}
       .extra-image-item {{ display: block; }}
+      .extra-image-item.mode-full {{ margin-left: -32px; margin-right: -32px; width: calc(100% + 64px); }}
+      .extra-image-item.mode-tight {{ text-align: center; }}
       .extra-images img {{
         display: block;
         width: 100%;
@@ -1943,6 +2046,18 @@ def render_html(
       .extra-images img.is-wide {{
         width: 100%;
         height: auto;
+      }}
+      .extra-image-item img.mode-full {{
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }}
+      .extra-image-item img.mode-tight {{
+        width: 100% !important;
+        max-width: 380px !important;
       }}
       .market {{ background: #070707; color: #f4f4f4; border-top: 1px solid #171717; }}
       .market h2 {{ color: #ffffff; margin-bottom: 8px; }}
@@ -2002,6 +2117,9 @@ def render_html(
         .toolbar {{ padding: 10px 16px 6px; box-sizing: border-box; }}
         .wrapper {{ padding: 16px 0; }}
         .container {{ width: 100%; max-width: 100%; border-radius: 0; }}
+        .image.mode-full {{ margin-left: -20px; margin-right: -20px; width: calc(100% + 40px); }}
+        .extra-image-item.mode-full {{ margin-left: -20px; margin-right: -20px; width: calc(100% + 40px); }}
+        .image img.mode-tight, .extra-image-item img.mode-tight {{ max-width: 260px !important; }}
         .image img, .extra-images img {{ max-width: 100%; margin: 0 auto; }}
         .section {{ padding: 18px 20px; }}
         .section h2.point-title {{ font-size: 24px; color: #ff4202; }}
@@ -2019,6 +2137,10 @@ def render_html(
         .container {{ width: 100%; max-width: 100%; border-radius: 0; }}
         .image img {{ max-height: 38vh; width: auto; max-width: 100%; margin: 0 auto; }}
         .extra-images img {{ max-height: 32vh; width: auto; max-width: 100%; margin: 0 auto; }}
+        .image.mode-full {{ margin-left: -18px; margin-right: -18px; width: calc(100% + 36px); }}
+        .extra-image-item.mode-full {{ margin-left: -18px; margin-right: -18px; width: calc(100% + 36px); }}
+        .image.mode-full img, .extra-image-item.mode-full img {{ width: 100% !important; max-width: none !important; max-height: none !important; }}
+        .image.mode-tight img, .extra-image-item.mode-tight img {{ width: 100% !important; max-width: 260px !important; max-height: 32vh !important; }}
         .section {{ padding: 14px 18px; }}
         .hero {{ min-height: 180px; }}
       }}
@@ -2111,6 +2233,49 @@ def render_html(
     </script>
     <script>
       (function () {{
+        function detectModeFromPath(path) {{
+          var raw = String(path || '').split('?')[0].split('#')[0].toLowerCase();
+          if (/_full\.[a-z0-9]{2,5}$/.test(raw)) return 'full';
+          if (/_tight\.[a-z0-9]{2,5}$/.test(raw)) return 'tight';
+          return 'plain';
+        }}
+
+        function applyDisplayMode(img) {{
+          var mode = detectModeFromPath(img.currentSrc || img.getAttribute('src') || '');
+          img.classList.remove('mode-full', 'mode-tight', 'mode-plain');
+          img.classList.add('mode-' + mode);
+          var wrap = img.closest('.image, .extra-image-item');
+          if (wrap) {{
+            wrap.classList.remove('mode-full', 'mode-tight', 'mode-plain');
+            wrap.classList.add('mode-' + mode);
+          }}
+        }}
+
+        function applyMobileSpecificSources() {{
+          if (!window.matchMedia("(max-width: 720px)").matches) {{
+            return;
+          }}
+          document.querySelectorAll('.image img, .extra-images img').forEach(function (img) {{
+            if (img.dataset.mobileApplied === '1') {{
+              return;
+            }}
+            var mobileList = (img.dataset.mobileSrcs || '').split('|').filter(Boolean);
+            if (!mobileList.length) {{
+              return;
+            }}
+            var current = img.getAttribute('src') || '';
+            var existingFallbacks = (img.dataset.fallbacks || '').split('|').filter(Boolean);
+            var mergedFallbacks = mobileList.slice(1);
+            if (current) {{
+              mergedFallbacks.push(current);
+            }}
+            mergedFallbacks = mergedFallbacks.concat(existingFallbacks);
+            img.dataset.fallbacks = mergedFallbacks.join('|');
+            img.dataset.mobileApplied = '1';
+            img.src = mobileList[0];
+          }});
+        }}
+
         function tagOrientation(img) {{
           if (!(img.naturalWidth > 0) || !(img.naturalHeight > 0)) {{
             return;
@@ -2125,11 +2290,13 @@ def render_html(
             img.classList.add('is-standard');
           }}
         }}
+        applyMobileSpecificSources();
         document.querySelectorAll('.image img, .extra-images img').forEach(function (img) {{
           if (img.complete && img.naturalWidth > 0) {{
+            applyDisplayMode(img);
             tagOrientation(img);
           }} else {{
-            img.addEventListener('load', function () {{ tagOrientation(img); }});
+            img.addEventListener('load', function () {{ applyDisplayMode(img); tagOrientation(img); }});
           }}
         }});
       }})();
