@@ -2263,7 +2263,7 @@ function resolveExtraImagePaths(point, meta, imageOptions) {
   const maxExtraRaw = parseNumber(meta.max_extra_images, 6);
   const maxExtraImages = Math.max(0, Math.min(20, Math.floor(maxExtraRaw || 6)));
   const entries = [];
-  const exts = ["png", "jpg", "jpeg", "webp"];
+  const exts = ["png"];
 
   for (let index = 1; index <= maxExtraImages; index += 1) {
     const base = useR2Images
@@ -2370,7 +2370,7 @@ function resolveImageSources(point, meta, imageOptions) {
   }
 
   const baseNames = [`${point.order}`, `image${point.order}`];
-  const exts = ["png", "jpg", "jpeg", "webp"];
+  const exts = ["png"];
   baseNames.forEach((base) => {
     buildAutoImageNameCandidates(base, exts).forEach((candidate) =>
       pushCandidateWithFallbacks(candidate, true)

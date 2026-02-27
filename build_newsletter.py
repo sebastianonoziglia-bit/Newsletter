@@ -1707,7 +1707,7 @@ def resolve_image_path(point: Point, meta: dict[str, str], output_dir: Path) -> 
         image_dir = normalize_text(meta.get("image_dir", ".")) or "."
         filename_candidates = build_auto_image_name_candidates(
             str(point.order),
-            ["png", "jpg", "jpeg", "webp"],
+            ["png"],
         )
         candidate = ""
         for filename in filename_candidates:
@@ -1739,7 +1739,7 @@ def resolve_extra_image_paths(
     image_dir = normalize_text(meta.get("image_dir", ".")) or "."
     max_extra_images = int(parse_number(meta.get("max_extra_images", "10"), default=10))
     max_extra_images = max(0, min(20, max_extra_images))
-    extensions = ["png", "jpg", "jpeg", "webp"]
+    extensions = ["png"]
     sources: list[str] = []
 
     for index in range(1, max_extra_images + 1):
