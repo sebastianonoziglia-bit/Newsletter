@@ -203,6 +203,16 @@ export default {
       ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
       return response;
     } catch (error) {
+      const stale = await caches.default.match(cacheKey);
+      if (stale) {
+        const headers = new Headers(stale.headers);
+        headers.set("x-newsletter-stale", "1");
+        headers.set("cache-control", "public, max-age=30, s-maxage=30");
+        return new Response(stale.body, {
+          status: 200,
+          headers,
+        });
+      }
       return new Response(`Newsletter render error: ${error.message}`, {
         status: 500,
         headers: {
@@ -286,10 +296,33 @@ async function fetchGoogleLiveBtcRows(sheetId, tabName, required) {
 }
 
 async function fetchGoogleCsvRows(url, tabName, required) {
-  const response = await fetch(url, {
-    headers: { "accept": "text/csv,text/plain;q=0.9,*/*;q=0.1" },
-    cf: { cacheEverything: false },
-  });
+  const timeoutMs = 9000;
+  let response;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      response = await fetch(url, {
+        headers: { "accept": "text/csv,text/plain;q=0.9,*/*;q=0.1" },
+        cf: { cacheEverything: false },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    const isTimeout =
+      error?.name === "AbortError" || /abort|timed?\s*out/i.test(message);
+    if (!required && isTimeout) {
+      return [];
+    }
+    throw new Error(
+      isTimeout
+        ? `Timed out loading Google Sheet tab '${tabName}'.`
+        : `Could not load Google Sheet tab '${tabName}'.`
+    );
+  }
 
   if (!response.ok) {
     if (!required && (response.status === 400 || response.status === 404)) {
