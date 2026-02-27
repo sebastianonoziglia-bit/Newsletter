@@ -99,9 +99,10 @@ export default {
       const graphSettingsTab =
         normalizeText(env.GOOGLE_GRAPH_SETTINGS_TAB) || "graph_settings";
 
+      // Fetch critical tabs first to reduce gviz contention and avoid all-or-nothing startup hangs.
+      const pointsRows = await fetchGoogleTabRows(sheetId, pointsTab, true);
+      const metaRows = await fetchGoogleTabRows(sheetId, metaTab, false);
       const [
-        metaRows,
-        pointsRows,
         livePriceRows,
         btcPriceRows,
         treasuriesRows,
@@ -109,18 +110,15 @@ export default {
         liquidationsRows,
         ownershipRows,
         graphSettingsRows,
-      ] =
-        await Promise.all([
-          fetchGoogleTabRows(sheetId, metaTab, true),
-          fetchGoogleTabRows(sheetId, pointsTab, true),
-          fetchGoogleLiveBtcRows(sheetId, livePricesTab, false),
-          fetchGoogleTabRows(sheetId, btcPriceTab, false),
-          fetchGoogleTabRows(sheetId, treasuriesTab, false),
-          fetchGoogleTabRows(sheetId, circulatingTab, false),
-          fetchGoogleTabRows(sheetId, liquidationsTab, false),
-          fetchGoogleTabRows(sheetId, ownershipTab, false),
-          fetchGoogleTabRows(sheetId, graphSettingsTab, false),
-        ]);
+      ] = await Promise.all([
+        fetchGoogleLiveBtcRows(sheetId, livePricesTab, false),
+        fetchGoogleTabRows(sheetId, btcPriceTab, false),
+        fetchGoogleTabRows(sheetId, treasuriesTab, false),
+        fetchGoogleTabRows(sheetId, circulatingTab, false),
+        fetchGoogleTabRows(sheetId, liquidationsTab, false),
+        fetchGoogleTabRows(sheetId, ownershipTab, false),
+        fetchGoogleTabRows(sheetId, graphSettingsTab, false),
+      ]);
 
       const meta = readMeta(metaRows);
       const points = readPoints(pointsRows);
@@ -296,41 +294,67 @@ async function fetchGoogleLiveBtcRows(sheetId, tabName, required) {
 }
 
 async function fetchGoogleCsvRows(url, tabName, required) {
-  const timeoutMs = 9000;
+  const timeoutMs = required ? 20000 : 12000;
+  const maxAttempts = 2;
   let response;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let lastErrorMessage = "";
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      response = await fetch(url, {
-        headers: { "accept": "text/csv,text/plain;q=0.9,*/*;q=0.1" },
-        cf: { cacheEverything: false },
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timer);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        response = await fetch(url, {
+          headers: { "accept": "text/csv,text/plain;q=0.9,*/*;q=0.1" },
+          cf: { cacheEverything: false },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error) {
+      const message = String(error?.message || error || "");
+      const isTimeout =
+        error?.name === "AbortError" || /abort|timed?\s*out/i.test(message);
+      if (isTimeout) {
+        lastErrorMessage = `Timed out loading Google Sheet tab '${tabName}'.`;
+        if (attempt < maxAttempts) {
+          continue;
+        }
+        if (!required) {
+          return [];
+        }
+        throw new Error(lastErrorMessage);
+      }
+      lastErrorMessage = `Could not load Google Sheet tab '${tabName}'.`;
+      if (!required) {
+        return [];
+      }
+      throw new Error(lastErrorMessage);
     }
-  } catch (error) {
-    const message = String(error?.message || error || "");
-    const isTimeout =
-      error?.name === "AbortError" || /abort|timed?\s*out/i.test(message);
-    if (!required && isTimeout) {
-      return [];
+
+    if (!response.ok) {
+      if (!required && (response.status === 400 || response.status === 404)) {
+        return [];
+      }
+      const retriable = response.status === 429 || response.status >= 500;
+      if (retriable && attempt < maxAttempts) {
+        continue;
+      }
+      throw new Error(
+        `Could not load Google Sheet tab '${tabName}' (HTTP ${response.status}).`
+      );
     }
-    throw new Error(
-      isTimeout
-        ? `Timed out loading Google Sheet tab '${tabName}'.`
-        : `Could not load Google Sheet tab '${tabName}'.`
-    );
+
+    // success
+    break;
   }
 
-  if (!response.ok) {
-    if (!required && (response.status === 400 || response.status === 404)) {
+  if (!response) {
+    if (!required) {
       return [];
     }
-    throw new Error(
-      `Could not load Google Sheet tab '${tabName}' (HTTP ${response.status}).`
-    );
+    throw new Error(lastErrorMessage || `Could not load Google Sheet tab '${tabName}'.`);
   }
 
   const raw = (await response.text()).replace(/^\uFEFF/, "").trim();
