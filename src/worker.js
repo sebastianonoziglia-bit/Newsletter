@@ -26,7 +26,6 @@ const DEFAULT_META = {
   footer_line: "Globalite Macro Brief - For internal distribution.",
   hero_image_url: "/hero.png",
   footer_logo_url: "/logotosite.png",
-  footer_instagram_icon: "/instagram.png",
   footer_x_icon: "/x_twitter.png",
   footer_linkedin_icon: "/linkedin.png",
   image_dir: ".",
@@ -1068,7 +1067,6 @@ function renderHtml(
   const resolvedLogo = resolveLogo(meta);
   const logoUrl = escapeHtml(resolvedLogo, true);
   const footerLogoUrl = escapeHtml(resolveAssetPath(meta.footer_logo_url, "/logotosite.png"), true);
-  const footerInstagramIcon = "/instagram.png";
   const footerXIcon = "/x_twitter.png";
   const footerLinkedinIcon = "/linkedin.png";
   const showPointSources = parseBool(meta.show_point_sources);
@@ -1426,10 +1424,23 @@ function renderHtml(
         .snapshot-treas-table { min-width: 0; width: 100%; table-layout: fixed; }
       }
       @media print {
+        @page { size: A4 portrait; margin: 10mm; }
         .no-print { display: none !important; }
-        body { background: #ffffff; }
-        .wrapper { background: #ffffff; padding: 0; }
-        .container { border: 0; border-radius: 0; }
+        html, body { width: auto !important; overflow: visible !important; background: #ffffff; }
+        body { margin: 0 !important; padding: 0 !important; }
+        .wrapper { background: #ffffff; padding: 0 !important; width: 100% !important; }
+        .container { width: 100% !important; max-width: 100% !important; border: 0; border-radius: 0; }
+        table, tr, td { page-break-inside: auto !important; break-inside: auto !important; }
+        .hero { min-height: 180px !important; break-after: avoid-page !important; page-break-after: avoid !important; }
+        .hero-content { padding: 18px 24px !important; }
+        .intro-wrap, .section, .market, .snapshot-card, .footer {
+          break-inside: avoid-page !important;
+          page-break-inside: avoid !important;
+        }
+        .section h2, .section h3 { break-after: avoid-page !important; page-break-after: avoid !important; }
+        .image, .extra-image-item { break-inside: avoid-page !important; page-break-inside: avoid !important; }
+        .image img, .extra-images img { max-height: 170mm !important; }
+        a[href]:after { content: ""; }
       }
     </style>
   </head>
@@ -1488,10 +1499,6 @@ ${marketHtml}
                       </span>
                     </a>
                     <div class="footer-socials">
-                      <a class="footer-social-btn" href="https://www.instagram.com/globalite.sa/" aria-label="Instagram">
-                        <img src="${footerInstagramIcon}" data-fallbacks="/instagram.jpg|/instagram.jpeg|/instagram.webp" alt="Instagram" onload="const svg=this.nextElementSibling;if(svg){svg.style.display='none';}" onerror="const list=(this.dataset.fallbacks||'').split('|').filter(Boolean);if(list.length){this.src=list.shift();this.dataset.fallbacks=list.join('|');}else{this.style.display='none';const svg=this.nextElementSibling;if(svg){svg.style.display='block';}}">
-                        <svg class="footer-social-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"></rect><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle><circle cx="17.4" cy="6.6" r="1.3" fill="currentColor"></circle></svg>
-                      </a>
                       <a class="footer-social-btn" href="https://x.com/globalite_sa" aria-label="X">
                         <img src="${footerXIcon}" data-fallbacks="" alt="X" onload="const svg=this.nextElementSibling;if(svg){svg.style.display='none';}" onerror="this.style.display='none';const svg=this.nextElementSibling;if(svg){svg.style.display='block';}">
                         <svg class="footer-social-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.2l4.1 5.5L16.7 4H20l-6.1 7 6.6 9H17l-4.7-6.4L6.8 20H3.5l6.8-7.8z" fill="currentColor"></path></svg>

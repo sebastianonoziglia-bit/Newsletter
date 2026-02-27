@@ -55,7 +55,6 @@ DEFAULT_META = {
     "footer_line": "Globalite Macro Brief - For internal distribution.",
     "hero_image_url": "public/hero.png",
     "footer_logo_url": "public/logotosite.png",
-    "footer_instagram_icon": "public/instagram.png",
     "footer_x_icon": "public/x:twitter.png",
     "footer_linkedin_icon": "public/linkedin.png",
     "image_dir": ".",
@@ -1910,10 +1909,6 @@ def render_html(
         normalize_text(meta.get("footer_logo_url", "public/logotosite.png")),
         quote=True,
     )
-    footer_instagram_icon = html.escape(
-        normalize_text(meta.get("footer_instagram_icon", "public/instagram.png")),
-        quote=True,
-    )
     footer_x_icon = html.escape(
         normalize_text(meta.get("footer_x_icon", "public/x:twitter.png")),
         quote=True,
@@ -2145,10 +2140,23 @@ def render_html(
         .hero {{ min-height: 180px; }}
       }}
       @media print {{
+        @page {{ size: A4 portrait; margin: 10mm; }}
         .no-print {{ display: none !important; }}
-        body {{ background: #ffffff; }}
-        .wrapper {{ background: #ffffff; padding: 0; }}
-        .container {{ border: 0; border-radius: 0; }}
+        html, body {{ width: auto !important; overflow: visible !important; background: #ffffff; }}
+        body {{ margin: 0 !important; padding: 0 !important; }}
+        .wrapper {{ background: #ffffff; padding: 0 !important; width: 100% !important; }}
+        .container {{ width: 100% !important; max-width: 100% !important; border: 0; border-radius: 0; }}
+        table, tr, td {{ page-break-inside: auto !important; break-inside: auto !important; }}
+        .hero {{ min-height: 180px !important; break-after: avoid-page !important; page-break-after: avoid !important; }}
+        .hero-content {{ padding: 18px 24px !important; }}
+        .intro-wrap, .section, .market, .snapshot-card, .footer {{
+          break-inside: avoid-page !important;
+          page-break-inside: avoid !important;
+        }}
+        .section h2, .section h3 {{ break-after: avoid-page !important; page-break-after: avoid !important; }}
+        .image, .extra-image-item {{ break-inside: avoid-page !important; page-break-inside: avoid !important; }}
+        .image img, .extra-images img {{ max-height: 170mm !important; }}
+        a[href]:after {{ content: ""; }}
       }}
     </style>
   </head>
@@ -2206,7 +2214,6 @@ def render_html(
                       </span>
                     </a>
                     <div class="footer-socials">
-                      <a class="footer-social-btn" href="https://www.instagram.com/globalite.sa/"><img src="{footer_instagram_icon}" alt="Instagram"></a>
                       <a class="footer-social-btn" href="https://x.com/globalite_sa"><img src="{footer_x_icon}" alt="X"></a>
                       <a class="footer-social-btn" href="https://www.linkedin.com/company/globalite-sa"><img src="{footer_linkedin_icon}" alt="LinkedIn"></a>
                     </div>
