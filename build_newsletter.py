@@ -2146,7 +2146,10 @@ def render_html(
         .wrapper {{ background: #ffffff !important; padding: 0 !important; width: 100% !important; }}
         .container {{ width: 100% !important; max-width: 100% !important; border: 0 !important; border-radius: 0 !important; overflow: visible !important; }}
         table, tr, td, th, div, section, article, p, h1, h2, h3, h4, h5, h6, img, figure, blockquote, ul, ol, li {{ break-inside: avoid !important; page-break-inside: avoid !important; }}
-        * {{ break-before: avoid !important; break-after: avoid !important; page-break-before: avoid !important; page-break-after: avoid !important; }}
+        .section, .snapshot-card, .market-card, .snapshot-treas-table-wrap {{ break-inside: auto !important; page-break-inside: auto !important; }}
+        .section h2, .section h3, .snapshot-card h3 {{ break-after: avoid-page !important; page-break-after: avoid !important; }}
+        .section h2 + *, .section h3 + *, .snapshot-card h3 + * {{ break-before: avoid-page !important; page-break-before: avoid !important; }}
+        p, li {{ orphans: 3; widows: 3; }}
         img {{ max-width: 100% !important; height: auto !important; display: block !important; }}
         canvas {{ break-inside: avoid !important; page-break-inside: avoid !important; max-width: 100% !important; }}
         a {{ color: #ff4202 !important; text-decoration: none !important; }}
@@ -2239,7 +2242,18 @@ def render_html(
         const body = encodeURIComponent(
           'View the latest newsletter here:\\n' + workerUrl + '\\n\\nOr open the attached PDF for an offline copy.'
         );
-        window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+        const mailtoUrl = 'mailto:?subject=' + subject + '&body=' + body;
+        const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&su=' + subject + '&body=' + body;
+        try {{
+          window.location.href = mailtoUrl;
+        }} catch (e) {{
+          // Ignore and use fallback below.
+        }}
+        window.setTimeout(function () {{
+          if (document.visibilityState === 'visible') {{
+            window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+          }}
+        }}, 650);
       }}
     </script>
     <script>
