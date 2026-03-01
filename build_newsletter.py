@@ -2140,29 +2140,23 @@ def render_html(
         .hero {{ min-height: 180px; }}
       }}
       @media print {{
-        @page {{ size: A4 portrait; margin: 10mm; }}
         .no-print {{ display: none !important; }}
-        html, body {{ width: auto !important; overflow: visible !important; background: #ffffff; }}
-        body {{ margin: 0 !important; padding: 0 !important; }}
-        .wrapper {{ background: #ffffff; padding: 0 !important; width: 100% !important; }}
-        .container {{ width: 100% !important; max-width: 100% !important; border: 0; border-radius: 0; }}
-        table, tr, td {{ page-break-inside: auto !important; break-inside: auto !important; }}
-        .hero {{ min-height: 180px !important; break-after: avoid-page !important; page-break-after: avoid !important; }}
-        .hero-content {{ padding: 18px 24px !important; }}
-        .intro-wrap, .section, .market, .snapshot-card, .footer {{
-          break-inside: avoid-page !important;
-          page-break-inside: avoid !important;
-        }}
-        .section h2, .section h3 {{ break-after: avoid-page !important; page-break-after: avoid !important; }}
-        .image, .extra-image-item {{ break-inside: avoid-page !important; page-break-inside: avoid !important; }}
-        .image img, .extra-images img {{ max-height: 170mm !important; }}
-        a[href]:after {{ content: ""; }}
+        @page {{ margin: 0; size: auto; }}
+        html, body {{ margin: 0 !important; padding: 0 !important; background: #ffffff !important; width: 100% !important; }}
+        .wrapper {{ background: #ffffff !important; padding: 0 !important; width: 100% !important; }}
+        .container {{ width: 100% !important; max-width: 100% !important; border: 0 !important; border-radius: 0 !important; overflow: visible !important; }}
+        table, tr, td, th, div, section, article, p, h1, h2, h3, h4, h5, h6, img, figure, blockquote, ul, ol, li {{ break-inside: avoid !important; page-break-inside: avoid !important; }}
+        * {{ break-before: avoid !important; break-after: avoid !important; page-break-before: avoid !important; page-break-after: avoid !important; }}
+        img {{ max-width: 100% !important; height: auto !important; display: block !important; }}
+        canvas {{ break-inside: avoid !important; page-break-inside: avoid !important; max-width: 100% !important; }}
+        a {{ color: #ff4202 !important; text-decoration: none !important; }}
       }}
     </style>
   </head>
   <body>
     <div class="toolbar no-print">
       <button class="download-pdf-btn" type="button" onclick="window.print()">Download PDF</button>
+      <button class="download-pdf-btn" type="button" onclick="sendEmail()">Send via Email</button>
     </div>
     <table class="wrapper" role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
@@ -2237,6 +2231,16 @@ def render_html(
           window.location.reload();
         }}, refreshSeconds * 1000);
       }})();
+    </script>
+    <script>
+      function sendEmail() {{
+        const subject = encodeURIComponent(document.title);
+        const workerUrl = 'https://crimson-bar-9107.sebastiano-noziglia.workers.dev/';
+        const body = encodeURIComponent(
+          'View the latest newsletter here:\\n' + workerUrl + '\\n\\nOr open the attached PDF for an offline copy.'
+        );
+        window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+      }}
     </script>
     <script>
       (function () {{

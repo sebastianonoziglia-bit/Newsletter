@@ -1291,15 +1291,41 @@ function renderHtml(
       .snapshot-treas-logo-wrap { width:26px; height:26px; border-radius:999px; background:#0f0f0f; border:1px solid #2a2a2a; display:flex; align-items:center; justify-content:center; overflow:hidden; }
       .snapshot-treas-logo { width:20px; height:20px; object-fit:contain; }
       .snapshot-treas-logo-fallback { width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#ffcfb8; letter-spacing:.3px; text-transform:uppercase; }
-      .snapshot-treas-label { font-size:.78em; color:#e6e6e6; text-align:center; line-height:1.25; min-height:32px; max-height:32px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+      .snapshot-treas-label {
+        font-size:.78em;
+        color:#e6e6e6;
+        text-align:center;
+        line-height:1.32;
+        min-height:38px;
+        max-height:none;
+        padding:0 2px 2px;
+        overflow:hidden;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+      }
       .snapshot-treas-value { color:#ff8f60; white-space:normal; text-align:center; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; font-size:.8em; min-height:18px; }
-      .snapshot-treas-group { color:#888; font-size:.7em; text-align:center; min-height:28px; max-height:28px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+      .snapshot-treas-group {
+        color:#888;
+        font-size:.72em;
+        text-align:center;
+        line-height:1.34;
+        min-height:34px;
+        max-height:none;
+        padding:0 2px 2px;
+        overflow:hidden;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+      }
       .snapshot-treas-table-wrap { margin-top:12px; border:1px solid #2a2a2a; border-radius:10px; overflow:hidden; }
       .snapshot-treas-table { width:100%; border-collapse:collapse; font-size:.78em; }
       .snapshot-treas-table th { text-align:left; padding:8px 10px; color:#9f9f9f; font-weight:500; border-bottom:1px solid #2a2a2a; background:#121212; white-space:normal; overflow-wrap:anywhere; }
       .snapshot-treas-table td { padding:7px 10px; border-bottom:1px solid #202020; color:#e6e6e6; vertical-align:middle; }
       .snapshot-treas-table tr:last-child td { border-bottom:none; }
       .snapshot-treas-cell-name { max-width:none; overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }
+      .snapshot-treas-table th.snapshot-treas-cell-num,
+      .snapshot-treas-table td.snapshot-treas-cell-num { text-align:right; }
       .snapshot-treas-cell-num { text-align:right; color:#ffcfb8; white-space:nowrap; font-variant-numeric:tabular-nums; }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
@@ -1424,29 +1450,23 @@ function renderHtml(
         .snapshot-treas-table { min-width: 0; width: 100%; table-layout: fixed; }
       }
       @media print {
-        @page { size: A4 portrait; margin: 10mm; }
         .no-print { display: none !important; }
-        html, body { width: auto !important; overflow: visible !important; background: #ffffff; }
-        body { margin: 0 !important; padding: 0 !important; }
-        .wrapper { background: #ffffff; padding: 0 !important; width: 100% !important; }
-        .container { width: 100% !important; max-width: 100% !important; border: 0; border-radius: 0; }
-        table, tr, td { page-break-inside: auto !important; break-inside: auto !important; }
-        .hero { min-height: 180px !important; break-after: avoid-page !important; page-break-after: avoid !important; }
-        .hero-content { padding: 18px 24px !important; }
-        .intro-wrap, .section, .market, .snapshot-card, .footer {
-          break-inside: avoid-page !important;
-          page-break-inside: avoid !important;
-        }
-        .section h2, .section h3 { break-after: avoid-page !important; page-break-after: avoid !important; }
-        .image, .extra-image-item { break-inside: avoid-page !important; page-break-inside: avoid !important; }
-        .image img, .extra-images img { max-height: 170mm !important; }
-        a[href]:after { content: ""; }
+        @page { margin: 0; size: auto; }
+        html, body { margin: 0 !important; padding: 0 !important; background: #ffffff !important; width: 100% !important; }
+        .wrapper { background: #ffffff !important; padding: 0 !important; width: 100% !important; }
+        .container { width: 100% !important; max-width: 100% !important; border: 0 !important; border-radius: 0 !important; overflow: visible !important; }
+        table, tr, td, th, div, section, article, p, h1, h2, h3, h4, h5, h6, img, figure, blockquote, ul, ol, li { break-inside: avoid !important; page-break-inside: avoid !important; }
+        * { break-before: avoid !important; break-after: avoid !important; page-break-before: avoid !important; page-break-after: avoid !important; }
+        img { max-width: 100% !important; height: auto !important; display: block !important; }
+        canvas { break-inside: avoid !important; page-break-inside: avoid !important; max-width: 100% !important; }
+        a { color: #ff4202 !important; text-decoration: none !important; }
       }
     </style>
   </head>
   <body>
     <div class="toolbar no-print">
       <button class="download-pdf-btn" type="button" onclick="window.print()">Download PDF</button>
+      <button class="download-pdf-btn" type="button" onclick="sendEmail()">Send via Email</button>
     </div>
     <table class="wrapper" role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
@@ -1528,6 +1548,16 @@ ${marketHtml}
           window.location.reload();
         }, refreshSeconds * 1000);
       })();
+    </script>
+    <script>
+      function sendEmail() {
+        const subject = encodeURIComponent(document.title);
+        const workerUrl = 'https://crimson-bar-9107.sebastiano-noziglia.workers.dev/';
+        const body = encodeURIComponent(
+          'View the latest newsletter here:\n' + workerUrl + '\n\nOr open the attached PDF for an offline copy.'
+        );
+        window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+      }
     </script>
     <script>
       (function () {
