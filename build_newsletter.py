@@ -2765,6 +2765,7 @@ def main() -> int:
         f"Generated {out_path} with {len(points)} points "
         f"(max allowed: {MAX_POINTS})."
     )
+    email_ready_output: str | None = None
     if premailer_transform is not None:
         email_out_path = out_path.with_name(f"{out_path.stem}_email{out_path.suffix}")
         email_ready_output = premailer_transform(html_output)
@@ -2776,6 +2777,15 @@ def main() -> int:
             "Install with: pip install premailer",
             file=sys.stderr,
         )
+    public_dir = base_dir / "public"
+    if public_dir.exists():
+        public_newsletter_path = public_dir / "newsletter.html"
+        public_newsletter_path.write_text(html_output, encoding="utf-8")
+        print(f"Published static asset: {public_newsletter_path}")
+        if email_ready_output is not None:
+            public_email_path = public_dir / "newsletter_email.html"
+            public_email_path.write_text(email_ready_output, encoding="utf-8")
+            print(f"Published static email asset: {public_email_path}")
     print(f"Source snapshot saved: {backup_path}")
     return 0
 
