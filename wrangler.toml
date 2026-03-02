@@ -2,6 +2,7 @@ name = "crimson-bar-9107"
 main = "src/worker.js"
 compatibility_date = "2026-02-19"
 workers_dev = true
+account_id = "e8f6b6525e4135bb4c952093402eb419"
 
 [vars]
 GOOGLE_SHEET_ID = "1ukXTu8PXWHGe4Fzg5rA424BmN6Bi3FPAWwA12QybNpI"
