@@ -54,7 +54,13 @@ export default {
       );
     }
 
-    const pagePaths = new Set(["/", "/newsletter", "/newsletter.html"]);
+    const pagePaths = new Set([
+      "/",
+      "/newsletter",
+      "/newsletter.html",
+      "/newsletter_email",
+      "/newsletter_email.html",
+    ]);
     if (!pagePaths.has(url.pathname)) {
       if (env.ASSETS) {
         return env.ASSETS.fetch(request);

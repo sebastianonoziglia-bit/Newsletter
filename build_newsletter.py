@@ -2777,15 +2777,6 @@ def main() -> int:
             "Install with: pip install premailer",
             file=sys.stderr,
         )
-    public_dir = base_dir / "public"
-    if public_dir.exists():
-        public_newsletter_path = public_dir / "newsletter.html"
-        public_newsletter_path.write_text(html_output, encoding="utf-8")
-        print(f"Published static asset: {public_newsletter_path}")
-        if email_ready_output is not None:
-            public_email_path = public_dir / "newsletter_email.html"
-            public_email_path.write_text(email_ready_output, encoding="utf-8")
-            print(f"Published static email asset: {public_email_path}")
     print(f"Source snapshot saved: {backup_path}")
     return 0
 
