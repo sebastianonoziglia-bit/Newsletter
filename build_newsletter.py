@@ -19,6 +19,10 @@ from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import urlopen
 
 from openpyxl import Workbook, load_workbook
+try:
+    from premailer import transform as premailer_transform
+except ImportError:  # pragma: no cover - optional dependency
+    premailer_transform = None
 
 MAX_POINTS = 10
 NUMBER_PATTERN = re.compile(
@@ -2001,6 +2005,7 @@ def render_html(
       .image img.is-wide {{
         width: 100%;
         height: auto;
+        max-height: none;
       }}
       .image img.mode-full {{
         width: 100% !important;
@@ -2130,8 +2135,8 @@ def render_html(
       }}
       @media (max-width: 920px) and (orientation: landscape) {{
         .container {{ width: 100%; max-width: 100%; border-radius: 0; }}
-        .image img {{ max-height: 38vh; width: auto; max-width: 100%; margin: 0 auto; }}
-        .extra-images img {{ max-height: 32vh; width: auto; max-width: 100%; margin: 0 auto; }}
+        .image img {{ width: 100%; height: auto; max-height: none; }}
+        .extra-images img {{ width: 100%; height: auto; max-height: none; }}
         .image.mode-full {{ margin-left: -18px; margin-right: -18px; width: calc(100% + 36px); }}
         .extra-image-item.mode-full {{ margin-left: -18px; margin-right: -18px; width: calc(100% + 36px); }}
         .image.mode-full img, .extra-image-item.mode-full img {{ width: 100% !important; max-width: none !important; max-height: none !important; }}
@@ -2158,8 +2163,9 @@ def render_html(
   </head>
   <body>
     <div class="toolbar no-print">
+      <button class="download-pdf-btn" type="button" onclick="copyHtmlForEmail()">Copy HTML for Email</button>
+      <button class="download-pdf-btn" type="button" onclick="openMailchimpCampaign()">Send via Mailchimp</button>
       <button class="download-pdf-btn" type="button" onclick="window.print()">Download PDF</button>
-      <button class="download-pdf-btn" type="button" onclick="sendEmail()">Send via Email</button>
     </div>
     <table class="wrapper" role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
@@ -2236,24 +2242,41 @@ def render_html(
       }})();
     </script>
     <script>
-      function sendEmail() {{
-        const subject = encodeURIComponent(document.title);
-        const workerUrl = 'https://crimson-bar-9107.sebastiano-noziglia.workers.dev/';
-        const body = encodeURIComponent(
-          'View the latest newsletter here:\\n' + workerUrl + '\\n\\nOr open the attached PDF for an offline copy.'
-        );
-        const mailtoUrl = 'mailto:?subject=' + subject + '&body=' + body;
-        const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&su=' + subject + '&body=' + body;
-        try {{
-          window.location.href = mailtoUrl;
-        }} catch (e) {{
-          // Ignore and use fallback below.
+      function openMailchimpCampaign() {{
+        window.open('https://admin.mailchimp.com/campaigns/#/create-campaign/', '_blank', 'noopener,noreferrer');
+      }}
+
+      function copyHtmlForEmail() {{
+        var container = document.querySelector('.container');
+        if (!container) {{
+          return;
         }}
-        window.setTimeout(function () {{
-          if (document.visibilityState === 'visible') {{
-            window.open(gmailUrl, '_blank', 'noopener,noreferrer');
-          }}
-        }}, 650);
+        var html = container.outerHTML;
+        if (navigator.clipboard && window.isSecureContext) {{
+          navigator.clipboard.writeText(html).then(function () {{
+            alert('Newsletter HTML copied! Paste it into Mailchimp > Email > Code your own.');
+          }}).catch(function () {{
+            fallbackCopyText(html);
+          }});
+          return;
+        }}
+        fallbackCopyText(html);
+      }}
+
+      function fallbackCopyText(text) {{
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {{
+          document.execCommand('copy');
+          alert('Newsletter HTML copied! Paste it into Mailchimp > Email > Code your own.');
+        }} finally {{
+          document.body.removeChild(textarea);
+        }}
       }}
     </script>
     <script>
@@ -2742,6 +2765,17 @@ def main() -> int:
         f"Generated {out_path} with {len(points)} points "
         f"(max allowed: {MAX_POINTS})."
     )
+    if premailer_transform is not None:
+        email_out_path = out_path.with_name(f"{out_path.stem}_email{out_path.suffix}")
+        email_ready_output = premailer_transform(html_output)
+        email_out_path.write_text(email_ready_output, encoding="utf-8")
+        print(f"Generated email-safe HTML: {email_out_path}")
+    else:
+        print(
+            "Warning: premailer not installed; skipped newsletter_email.html generation. "
+            "Install with: pip install premailer",
+            file=sys.stderr,
+        )
     print(f"Source snapshot saved: {backup_path}")
     return 0
 

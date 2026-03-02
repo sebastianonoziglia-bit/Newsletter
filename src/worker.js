@@ -1183,6 +1183,7 @@ function renderHtml(
       .image img.is-wide {
         width: 100%;
         height: auto;
+        max-height: none;
       }
       .image img.mode-full {
         width: 100% !important;
@@ -1412,8 +1413,8 @@ function renderHtml(
         table.container > tbody > tr > td { width: 100% !important; min-width: 0; }
         .toolbar, .container { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
         .toolbar { padding-left: 12px !important; padding-right: 12px !important; }
-        .image img { max-height: 38vh !important; width: auto !important; max-width: 100% !important; margin: 0 auto !important; }
-        .extra-images img { max-height: 32vh !important; width: auto !important; max-width: 100% !important; margin: 0 auto !important; }
+        .image img { width: 100% !important; height: auto !important; max-height: none !important; }
+        .extra-images img { width: 100% !important; height: auto !important; max-height: none !important; }
         .image.mode-full { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; }
         .extra-image-item.mode-full { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; }
         .image.mode-full img, .extra-image-item.mode-full img { width: 100% !important; max-width: none !important; max-height: none !important; }
@@ -1468,8 +1469,9 @@ function renderHtml(
   </head>
   <body>
     <div class="toolbar no-print">
+      <button class="download-pdf-btn" type="button" onclick="copyHtmlForEmail()">Copy HTML for Email</button>
+      <button class="download-pdf-btn" type="button" onclick="openMailchimpCampaign()">Send via Mailchimp</button>
       <button class="download-pdf-btn" type="button" onclick="window.print()">Download PDF</button>
-      <button class="download-pdf-btn" type="button" onclick="sendEmail()">Send via Email</button>
     </div>
     <table class="wrapper" role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
@@ -1553,24 +1555,41 @@ ${marketHtml}
       })();
     </script>
     <script>
-      function sendEmail() {
-        const subject = encodeURIComponent(document.title);
-        const workerUrl = 'https://crimson-bar-9107.sebastiano-noziglia.workers.dev/';
-        const body = encodeURIComponent(
-          'View the latest newsletter here:\n' + workerUrl + '\n\nOr open the attached PDF for an offline copy.'
-        );
-        const mailtoUrl = 'mailto:?subject=' + subject + '&body=' + body;
-        const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&su=' + subject + '&body=' + body;
-        try {
-          window.location.href = mailtoUrl;
-        } catch (e) {
-          // Ignore and use fallback below.
+      function openMailchimpCampaign() {
+        window.open('https://admin.mailchimp.com/campaigns/#/create-campaign/', '_blank', 'noopener,noreferrer');
+      }
+
+      function copyHtmlForEmail() {
+        var container = document.querySelector('.container');
+        if (!container) {
+          return;
         }
-        window.setTimeout(function () {
-          if (document.visibilityState === 'visible') {
-            window.open(gmailUrl, '_blank', 'noopener,noreferrer');
-          }
-        }, 650);
+        var html = container.outerHTML;
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(html).then(function () {
+            alert('Newsletter HTML copied! Paste it into Mailchimp > Email > Code your own.');
+          }).catch(function () {
+            fallbackCopyText(html);
+          });
+          return;
+        }
+        fallbackCopyText(html);
+      }
+
+      function fallbackCopyText(text) {
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          alert('Newsletter HTML copied! Paste it into Mailchimp > Email > Code your own.');
+        } finally {
+          document.body.removeChild(textarea);
+        }
       }
     </script>
     <script>
