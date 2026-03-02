@@ -1,4 +1,5 @@
 const MAX_POINTS = 50;
+const MAX_TREASURY_TABLE_ROWS = 20;
 const NUMBER_PATTERN = /(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[kKmMbBtT%])?/g;
 
 const DEFAULT_META = {
@@ -1106,7 +1107,7 @@ function renderHtml(
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
       *, *::before, *::after { box-sizing: border-box; }
-      html, body { width: 100%; max-width: 100%; overflow-x: auto; }
+      html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
       body {
         margin: 0;
         padding: 0;
@@ -1162,9 +1163,9 @@ function renderHtml(
       .section p, .section li, .intro-preface p, .intro-text { overflow-wrap: anywhere; word-break: break-word; }
       .image { margin: 20px 0; width: 100%; box-sizing: border-box; }
       .image.mode-full {
-        margin-left: -32px;
-        margin-right: -32px;
-        width: calc(100% + 64px);
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
       }
       .image.mode-tight { text-align: center; }
       .image img {
@@ -1193,7 +1194,7 @@ function renderHtml(
       }
       .image img.mode-full {
         width: 100% !important;
-        max-width: none !important;
+        max-width: 100% !important;
         max-height: none !important;
         border-radius: 0;
         border-left: 0;
@@ -1207,9 +1208,9 @@ function renderHtml(
       .extra-images { margin: 14px 0 24px; display: grid; gap: 10px; }
       .extra-image-item { display: block; }
       .extra-image-item.mode-full {
-        margin-left: -32px;
-        margin-right: -32px;
-        width: calc(100% + 64px);
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
       }
       .extra-image-item.mode-tight { text-align: center; }
       .extra-images img {
@@ -1237,7 +1238,7 @@ function renderHtml(
       }
       .extra-image-item img.mode-full {
         width: 100% !important;
-        max-width: none !important;
+        max-width: 100% !important;
         max-height: none !important;
         border-radius: 0;
         border-left: 0;
@@ -1334,6 +1335,7 @@ function renderHtml(
       .snapshot-treas-table th.snapshot-treas-cell-num,
       .snapshot-treas-table td.snapshot-treas-cell-num { text-align:right; }
       .snapshot-treas-cell-num { text-align:right; color:#ffcfb8; white-space:nowrap; font-variant-numeric:tabular-nums; }
+      .snapshot-treas-note { margin: 8px 2px 0; color: #9a9a9a; font-size: .76em; }
       .tldr { background: #fff8ec; border-top: 2px solid #ff4202; }
       .conclusion { background: #fff7f3; border-top: 2px solid #ff4202; }
       .footer { padding: 0; font-size: 12px; color: #ffffff; background: #0f0f0f; }
@@ -1355,8 +1357,8 @@ function renderHtml(
         .toolbar { padding: 10px 16px 6px; box-sizing: border-box; }
         .wrapper { padding: 16px 0; }
         .container { width: 100%; max-width: 100%; border-radius: 0; }
-        .image.mode-full { margin-left: -20px; margin-right: -20px; width: calc(100% + 40px); }
-        .extra-image-item.mode-full { margin-left: -20px; margin-right: -20px; width: calc(100% + 40px); }
+        .image.mode-full { margin-left: 0; margin-right: 0; width: 100%; }
+        .extra-image-item.mode-full { margin-left: 0; margin-right: 0; width: 100%; }
         .image img.mode-tight, .extra-image-item img.mode-tight { max-width: 260px !important; }
         .image img, .extra-images img { max-width: 100%; margin: 0 auto; }
         .section { padding: 18px 20px; }
@@ -1421,9 +1423,9 @@ function renderHtml(
         .toolbar { padding-left: 12px !important; padding-right: 12px !important; }
         .image img { width: 100% !important; height: auto !important; max-height: none !important; }
         .extra-images img { width: 100% !important; height: auto !important; max-height: none !important; }
-        .image.mode-full { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; }
-        .extra-image-item.mode-full { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; }
-        .image.mode-full img, .extra-image-item.mode-full img { width: 100% !important; max-width: none !important; max-height: none !important; }
+        .image.mode-full { margin-left: 0 !important; margin-right: 0 !important; width: 100% !important; }
+        .extra-image-item.mode-full { margin-left: 0 !important; margin-right: 0 !important; width: 100% !important; }
+        .image.mode-full img, .extra-image-item.mode-full img { width: 100% !important; max-width: 100% !important; max-height: none !important; }
         .image.mode-tight img, .extra-image-item.mode-tight img { width: 100% !important; max-width: 260px !important; max-height: 32vh !important; }
         .wrapper { padding: 0 !important; }
         .container { border-radius: 0 !important; border-left: 0; border-right: 0; }
@@ -2310,6 +2312,8 @@ function renderSnapshotSection(data) {
         : 10;
     const barRows = visibleRows.slice(0, barsLimit);
     const remainingRows = visibleRows.slice(barsLimit);
+    const tableRows = remainingRows.slice(0, MAX_TREASURY_TABLE_ROWS);
+    const omittedRows = Math.max(0, remainingRows.length - tableRows.length);
     const totalBtc = visibleRows.reduce((sum, row) => sum + Number(row.btc || 0), 0);
     const liveBtcPrice = Number(data.live_btc_price || 0);
     const maxBtc = Math.max(...barRows.map((row) => Number(row.btc || 0)), 1);
@@ -2338,7 +2342,7 @@ function renderSnapshotSection(data) {
       </div>`;
       })
       .join("");
-    const remainderTable = remainingRows.length
+    const remainderTable = tableRows.length
       ? `<div class="snapshot-treas-table-wrap">
       <table class="snapshot-treas-table" role="presentation">
         <thead>
@@ -2350,7 +2354,7 @@ function renderSnapshotSection(data) {
           </tr>
         </thead>
         <tbody>
-          ${remainingRows
+          ${tableRows
             .map((row) => {
               const btc = Number(row.btc || 0);
               const pctTotal = totalBtc > 0 ? (btc / totalBtc) * 100 : 0;
@@ -2365,6 +2369,7 @@ function renderSnapshotSection(data) {
             .join("")}
         </tbody>
       </table>
+      ${omittedRows > 0 ? `<p class="snapshot-treas-note">+${escapeHtml(String(omittedRows))} additional rows omitted for performance.</p>` : ""}
     </div>`
       : "";
     cards.push(`<article class="snapshot-card">
